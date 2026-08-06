@@ -115,7 +115,7 @@ document.querySelectorAll('.progress [data-tooltip]').forEach((segment, index) =
   if (!isFinalArchiveDocument && tooltipText.startsWith('Заказ-заявка подписана грузоотправителем') && !tooltipText.endsWith('Ожидает подпись перевозчика')) {
     tooltipText += ' Ожидает подпись перевозчика';
   }
-  const waitingMatch = tooltipText.match(/^(.*) (Ожида(?:ет|ется) подпись (?:водителя|перевозчика|отправителя))$/);
+  const waitingMatch = tooltipText.match(/^(.*) (Ожида(?:ет|ется) подпись (?:водителя|перевозчика|отправителя|экспедитора))$/);
   tooltip.append(document.createTextNode(waitingMatch ? waitingMatch[1] : tooltipText));
   if (waitingMatch) {
     tooltip.append(document.createElement('br'));
@@ -131,6 +131,11 @@ document.querySelectorAll('.progress [data-tooltip]').forEach((segment, index) =
 });
 
 const rows = [...document.querySelectorAll('.table-row')];
+const assignmentRows = [...document.querySelectorAll('.assignment-row')];
+const counterpartyAssignmentRows = [...document.querySelectorAll('.counterparty-assignment-row')];
+const requiresAssignmentRows = [...document.querySelectorAll('#assignmentsView .assignment-row')];
+const archiveAssignmentRows = [...document.querySelectorAll('.archive-assignment-row')];
+const draftAssignmentRows = [...document.querySelectorAll('.draft-assignment-row')];
 const organizationStatuses = ['observer-signer', 'observer', 'signer'];
 const applicationSupplyPoints = [
   'Москва, Складочная улица, 1',
@@ -139,6 +144,24 @@ const applicationSupplyPoints = [
   'Казань, улица Аделя Кутуя, 151',
   'Новосибирск, Толмачёвская улица, 43',
 ];
+const assignmentShippers = [
+  'ООО «Невская Производственная Компания»',
+  'АО «Северный терминал»',
+  'ООО «Уральский промышленный комплекс»',
+  'АО «Московский пищевой комбинат»',
+  'ООО «Волга Снаб»',
+  'АО «ДонАгро»',
+  'ООО «Сибирская торговая компания»',
+  'АО «Восточный складской комплекс»',
+];
+assignmentRows.forEach((row, index) => {
+  const invoice = row.querySelector('.invoice-cell');
+  const forwarder = invoice.nextElementSibling?.querySelector('strong')?.textContent.trim() || '';
+  const route = invoice.nextElementSibling?.nextElementSibling?.querySelector('strong')?.textContent.trim() || '';
+  row.dataset.forwarder = forwarder;
+  row.dataset.shipper = assignmentShippers[index % assignmentShippers.length];
+  row.dataset.loadingAddress = route.split(' — ')[0].trim();
+});
 rows.forEach((row, index) => {
   row.dataset.orgStatus = organizationStatuses[index % organizationStatuses.length];
   if (row.closest('#applicationRows, #counterpartyApplicationRows, #draftApplicationRows, #archiveApplicationRows')) {
@@ -146,7 +169,9 @@ rows.forEach((row, index) => {
     row.dataset.supplyPoint = applicationSupplyPoints[index % applicationSupplyPoints.length];
   }
   const invoiceName = row.querySelector('.invoice-cell strong').textContent;
-  const documentName = row.closest('#applicationRows, #counterpartyApplicationRows, #draftApplicationRows, #archiveApplicationRows') ? 'заявку' : 'накладную';
+  const documentName = row.classList.contains('assignment-row')
+    ? 'поручение'
+    : row.closest('#applicationRows, #counterpartyApplicationRows, #draftApplicationRows, #archiveApplicationRows') ? 'заявку' : 'накладную';
   const checkLabel = document.createElement('label');
   checkLabel.className = 'row-check';
 
@@ -182,7 +207,15 @@ const applicationRowGroups = {
 const invoiceTableHead = document.querySelector('#invoiceTableHead');
 const applicationTableHead = document.querySelector('#applicationTableHead');
 const tableWrap = document.querySelector('.table-wrap');
+const assignmentsView = document.querySelector('#assignmentsView');
+const counterpartyAssignmentsView = document.querySelector('#counterpartyAssignmentsView');
+const draftAssignmentsView = document.querySelector('#draftAssignmentsView');
+const archiveAssignmentsView = document.querySelector('#archiveAssignmentsView');
 const assignmentsEmpty = document.querySelector('#assignmentsEmpty');
+const assignmentsNoResults = document.querySelector('#assignmentsNoResults');
+const counterpartyAssignmentsNoResults = document.querySelector('#counterpartyAssignmentsNoResults');
+const draftAssignmentsNoResults = document.querySelector('#draftAssignmentsNoResults');
+const archiveAssignmentsNoResults = document.querySelector('#archiveAssignmentsNoResults');
 const search = document.querySelector('#search');
 const searchClear = document.querySelector('#searchClear');
 const invoiceStatusFilter = document.querySelector('#invoiceStatusFilter');
@@ -207,9 +240,20 @@ const dateToFilter = document.querySelector('#dateToFilter');
 const statusFilter = document.querySelector('#statusFilter');
 const applyFilters = document.querySelector('#applyFilters');
 const resetFilters = document.querySelector('#resetFilters');
-const advancedFilterControls = [invoiceStatusFilter, senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter, applicationSupplyPointFilter, loadingAddressFilter, unloadingAddressFilter, dateFromFilter, dateToFilter, statusFilter];
+const assignmentFilterFields = document.querySelector('#assignmentFilterFields');
+const standardFilterBottom = document.querySelector('#standardFilterBottom');
+const assignmentForwarderFilter = document.querySelector('#assignmentForwarderFilter');
+const assignmentShipperFilter = document.querySelector('#assignmentShipperFilter');
+const assignmentLoadingAddressFilter = document.querySelector('#assignmentLoadingAddressFilter');
+const assignmentDateFromFilter = document.querySelector('#assignmentDateFromFilter');
+const assignmentDateToFilter = document.querySelector('#assignmentDateToFilter');
+const assignmentStatusFilter = document.querySelector('#assignmentStatusFilter');
+const assignmentTopStatusFilter = document.querySelector('#assignmentTopStatusFilter');
+const applyAssignmentFilters = document.querySelector('#applyAssignmentFilters');
+const resetAssignmentFilters = document.querySelector('#resetAssignmentFilters');
+const advancedFilterControls = [invoiceStatusFilter, senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter, applicationSupplyPointFilter, loadingAddressFilter, unloadingAddressFilter, dateFromFilter, dateToFilter, statusFilter, assignmentForwarderFilter, assignmentShipperFilter, assignmentLoadingAddressFilter, assignmentDateFromFilter, assignmentDateToFilter, assignmentStatusFilter, assignmentTopStatusFilter];
 const enhancedFilterSelects = new Map();
-const searchableFilterSelects = new Set([senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter]);
+const searchableFilterSelects = new Set([senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter, assignmentForwarderFilter, assignmentShipperFilter]);
 const emptyState = document.querySelector('#emptyState');
 const pageTitle = document.querySelector('#pageTitle');
 const sectionButtons = [...document.querySelectorAll('[data-view]')];
@@ -224,6 +268,73 @@ const archiveSubnavButtons = [
 ];
 const applicationTab = document.querySelector('.tabs [data-tab="Заявки"]');
 const assignmentsTab = document.querySelector('.tabs [data-tab="Поручения"]');
+const receiptsTab = document.querySelector('#receiptsTab');
+const receiptsView = document.querySelector('#receiptsView');
+const receiptDetailView = document.querySelector('#receiptDetailView');
+const receiptDetailNumber = document.querySelector('#receiptDetailNumber');
+const receiptDetailBack = document.querySelector('#receiptDetailBack');
+const assignmentDetailView = document.querySelector('#assignmentDetailView');
+const applicationDetailView = document.querySelector('#applicationDetailView');
+const applicationDetailBack = document.querySelector('#applicationDetailBack');
+const applicationDetailListBack = document.querySelector('#applicationDetailListBack');
+const applicationDetailNumber = document.querySelector('#applicationDetailNumber');
+const applicationInfoNumber = document.querySelector('#applicationInfoNumber');
+const applicationInfoDate = document.querySelector('#applicationInfoDate');
+const applicationCarrierName = document.querySelector('#applicationCarrierName');
+const applicationDetailStatus = document.querySelector('#applicationDetailStatus');
+const applicationPrimaryAction = document.querySelector('#applicationPrimaryAction');
+const applicationEditAction = document.querySelector('#applicationEditAction');
+const applicationCompletedTabs = [...document.querySelectorAll('.application-completed-tab')];
+const assignmentDetailNumber = document.querySelector('#assignmentDetailNumber');
+const assignmentDetailStatus = document.querySelector('#assignmentDetailStatus');
+const assignmentDetailBack = document.querySelector('#assignmentDetailBack');
+const invoiceDetailView = document.querySelector('#invoiceDetailView');
+const invoiceDetailNumber = document.querySelector('#invoiceDetailNumber');
+const invoiceDetailStatus = document.querySelector('#invoiceDetailStatus');
+const invoiceDetailBack = document.querySelector('#invoiceDetailBack');
+const invoiceInfoNumber = document.querySelector('#invoiceInfoNumber');
+const invoiceInfoDate = document.querySelector('#invoiceInfoDate');
+const invoiceSenderName = document.querySelector('#invoiceSenderName');
+const invoiceSenderContact = document.querySelector('#invoiceSenderContact');
+const invoiceRecipientName = document.querySelector('#invoiceRecipientName');
+const invoiceRecipientAddress = document.querySelector('#invoiceRecipientAddress');
+const invoiceCargoName = document.querySelector('#invoiceCargoName');
+const invoiceSenderSignature = document.querySelector('#invoiceSenderSignature');
+const invoiceSenderIcon = document.querySelector('#invoiceSenderIcon');
+const invoiceSenderSigner = document.querySelector('#invoiceSenderSigner');
+const invoiceDriverName = document.querySelector('#invoiceDriverName');
+const invoiceCurrentStatusText = document.querySelector('#invoiceCurrentStatusText');
+const invoiceCarrierSignature = document.querySelector('#invoiceCarrierSignature');
+const invoiceCarrierSigner = document.querySelector('#invoiceCarrierSigner');
+const invoiceQrSignature = document.querySelector('#invoiceQrSignature');
+const invoiceQrLabel = document.querySelector('#invoiceQrLabel');
+const invoiceLoadingStep = document.querySelector('#invoiceLoadingStep');
+const invoiceLoadingTitle = document.querySelector('#invoiceLoadingTitle');
+const invoiceCreatedStep = document.querySelector('#invoiceCreatedStep');
+const invoiceCarrierIcon = document.querySelector('#invoiceCarrierIcon');
+const invoiceLoadingComment = document.querySelector('#invoiceLoadingComment');
+const invoiceUnloadingStep = document.querySelector('#invoiceUnloadingStep');
+const invoiceUnloadingToggle = document.querySelector('#invoiceUnloadingToggle');
+const invoiceUnloadingChevron = document.querySelector('#invoiceUnloadingChevron');
+const invoiceUnloadingSignatures = document.querySelector('#invoiceUnloadingSignatures');
+const invoiceUnloadingComment = document.querySelector('#invoiceUnloadingComment');
+const invoiceUnloadingDriver = document.querySelector('#invoiceUnloadingDriver');
+const invoiceUnloadingDriverName = document.querySelector('#invoiceUnloadingDriverName');
+const invoiceUnloadingCarrier = document.querySelector('#invoiceUnloadingCarrier');
+const invoiceCostStep = document.querySelector('#invoiceCostStep');
+const invoiceCostToggle = document.querySelector('#invoiceCostToggle');
+const invoiceCostChevron = document.querySelector('#invoiceCostChevron');
+const invoiceCostSignatures = document.querySelector('#invoiceCostSignatures');
+const invoiceCostSenderSignature = document.querySelector('#invoiceCostSenderSignature');
+const invoiceCostSenderIcon = document.querySelector('#invoiceCostSenderIcon');
+const invoiceCostSenderSigner = document.querySelector('#invoiceCostSenderSigner');
+const invoiceStatusActions = document.querySelector('#invoiceStatusActions');
+const invoicePrimaryAction = document.querySelector('#invoicePrimaryAction');
+const invoiceSecondaryAction = document.querySelector('#invoiceSecondaryAction');
+const invoiceTertiaryAction = document.querySelector('#invoiceTertiaryAction');
+const invoiceStatusInfo = document.querySelector('#invoiceStatusInfo');
+const invoiceCostDetails = document.querySelector('#invoiceCostDetails');
+const invoiceCompleteStep = document.querySelector('#invoiceCompleteStep');
 const helpButton = document.querySelector('#helpButton');
 const helpPopover = document.querySelector('#helpPopover');
 const toast = document.querySelector('#toast');
@@ -247,6 +358,7 @@ function getUniqueDocumentRows(rows) {
 
 function getActiveRows() {
   const groupKey = getViewGroupKey();
+  if (activeDocumentTab === 'receipts') return [];
   if (activeDocumentTab === 'applications') {
     const group = applicationRowGroups[groupKey];
     if (!group) return [];
@@ -255,7 +367,15 @@ function getActiveRows() {
     if (activeView === 'archive-all') return getUniqueDocumentRows(groupRows);
     return groupRows.filter((row) => `archive-${row.dataset.archiveSection}` === activeView);
   }
-  if (activeDocumentTab === 'assignments') return [];
+  if (activeDocumentTab === 'assignments') {
+    if (activeView === 'requires') return requiresAssignmentRows;
+    if (activeView === 'counterparty') return counterpartyAssignmentRows;
+    if (activeView === 'drafts') return draftAssignmentRows;
+    if (activeView === 'archive-all') return archiveAssignmentRows;
+    if (activeView === 'archive-completed') return archiveAssignmentRows.filter((row) => row.dataset.archiveSection === 'completed');
+    if (activeView === 'archive-trash') return archiveAssignmentRows.filter((row) => row.dataset.archiveSection === 'trash');
+    return [];
+  }
   const group = rowGroups[groupKey];
   if (!group) return [];
   const groupRows = [...group.querySelectorAll('.table-row')];
@@ -265,7 +385,13 @@ function getActiveRows() {
 }
 
 function getActiveSelectAll() {
-  return document.querySelector(activeDocumentTab === 'applications' ? '#applicationSelectAll' : '#selectAll');
+  if (activeDocumentTab === 'applications') return document.querySelector('#applicationSelectAll');
+  if (activeDocumentTab === 'assignments') {
+    if (activeView === 'drafts') return document.querySelector('#draftAssignmentSelectAll');
+    if (activeView.startsWith('archive-')) return document.querySelector('#archiveAssignmentSelectAll');
+    return document.querySelector(activeView === 'counterparty' ? '#counterpartyAssignmentSelectAll' : '#assignmentSelectAll');
+  }
+  return document.querySelector('#selectAll');
 }
 
 function syncSelectAll() {
@@ -313,7 +439,7 @@ function renderCustomFilterOptions(select, query = '') {
   if (!parts) return;
   parts.dropdown.replaceChildren();
   const normalizedQuery = query.trim().toLocaleLowerCase('ru');
-  let availableOptions = [...select.options].filter((option) => option.value);
+  let availableOptions = [...select.options].filter((option) => select === assignmentTopStatusFilter || option.value);
   if (parts.searchable) {
     availableOptions = normalizedQuery
       ? availableOptions.filter((option) => option.textContent.toLocaleLowerCase('ru').includes(normalizedQuery))
@@ -407,6 +533,7 @@ function enhanceFilterSelect(select) {
   const wrapper = document.createElement('div');
   wrapper.className = 'filter-control custom-filter-select';
   if (select.classList.contains('status-control')) wrapper.classList.add('status-control');
+  if (select === assignmentTopStatusFilter) wrapper.classList.add('assignment-top-status-control');
   select.before(wrapper);
   wrapper.append(select);
   select.className = 'custom-filter-native';
@@ -497,6 +624,48 @@ function fillFilterOptions(select, values) {
 }
 
 function populateFilterOptions() {
+  if (activeDocumentTab === 'assignments') {
+    const activeRows = getActiveRows();
+    fillFilterOptions(assignmentForwarderFilter, activeRows.map((row) => row.dataset.forwarder).filter(Boolean));
+    fillFilterOptions(assignmentShipperFilter, activeRows.map((row) => row.dataset.shipper).filter(Boolean));
+    const selectedStatus = assignmentStatusFilter.value;
+    const selectedTopStatus = assignmentTopStatusFilter.value;
+    assignmentStatusFilter.length = 1;
+    assignmentTopStatusFilter.length = 1;
+    const archiveAssignmentStatuses = [
+      ['assignment-completed', 'Завершено'],
+      ['assignment-signature', 'Ожидает подписи отправителя'],
+      ['assignment-carrier', 'Ожидает подпись экспедитора'],
+      ['assignment-error', 'Ошибка подписи'],
+      ['assignment-draft', 'Черновик'],
+    ];
+    const assignmentStatuses = activeView === 'drafts'
+      ? [['assignment-draft', 'Черновик']]
+      : activeView.startsWith('archive-')
+      ? archiveAssignmentStatuses.filter(([value]) => activeRows.some((row) => row.dataset.status === value))
+      : activeView === 'counterparty'
+        ? [['assignment-carrier', 'Ожидает подпись экспедитора']]
+        : [
+        ['assignment-signature', 'Ожидает подписи отправителя'],
+        ['assignment-error', 'Ошибка подписи'],
+      ];
+    assignmentStatuses.forEach(([value, label]) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      assignmentStatusFilter.append(option);
+      assignmentTopStatusFilter.append(option.cloneNode(true));
+    });
+    if (assignmentStatuses.some(([value]) => value === selectedStatus)) assignmentStatusFilter.value = selectedStatus;
+    if (assignmentStatuses.some(([value]) => value === selectedTopStatus)) assignmentTopStatusFilter.value = selectedTopStatus;
+    assignmentStatusFilter.classList.toggle('has-value', Boolean(assignmentStatusFilter.value));
+    assignmentTopStatusFilter.classList.toggle('has-value', Boolean(assignmentTopStatusFilter.value));
+    syncCustomFilterSelect(assignmentStatusFilter);
+    syncCustomFilterSelect(assignmentTopStatusFilter);
+    [senderFilter, carrierFilter, recipientFilter, customerFilter, applicationCarrierFilter, applicationSupplyPointFilter]
+      .forEach((select) => fillFilterOptions(select, []));
+    return;
+  }
   if (activeDocumentTab === 'applications') {
     const activeRows = getActiveRows();
     fillFilterOptions(applicationCarrierFilter, activeRows.map((row) => row.dataset.carrier).filter(Boolean));
@@ -526,17 +695,33 @@ function readAdvancedFilters() {
     dateFrom: dateFromFilter.value,
     dateTo: dateToFilter.value,
     status: statusFilter.value,
+    assignmentForwarder: assignmentForwarderFilter.value,
+    assignmentShipper: assignmentShipperFilter.value,
+    assignmentLoadingAddress: assignmentLoadingAddressFilter.value.trim().toLocaleLowerCase('ru'),
+    assignmentDateFrom: assignmentDateFromFilter.value,
+    assignmentDateTo: assignmentDateToFilter.value,
+    assignmentStatus: assignmentStatusFilter.value,
   };
 }
 
 function getInvoiceDate(invoice) {
   const dateText = invoice.querySelector('.muted').textContent;
   const match = dateText.match(/(\d{2})\.(\d{2})/);
-  const year = activeDocumentTab === 'applications' || activeView === 'drafts' ? '2026' : '2024';
+  const year = activeDocumentTab === 'applications' || activeDocumentTab === 'assignments' || activeView === 'drafts' ? '2026' : '2024';
   return match ? `${year}-${match[2]}-${match[1]}` : '';
 }
 
 function matchesAdvancedFilters(row) {
+  if (activeDocumentTab === 'assignments') {
+    const assignmentDate = getInvoiceDate(row.querySelector('.invoice-cell'));
+    const loadingAddress = (row.dataset.loadingAddress || '').toLocaleLowerCase('ru');
+    return (!appliedFilters.assignmentForwarder || row.dataset.forwarder === appliedFilters.assignmentForwarder)
+      && (!appliedFilters.assignmentShipper || row.dataset.shipper === appliedFilters.assignmentShipper)
+      && (!appliedFilters.assignmentLoadingAddress || loadingAddress.includes(appliedFilters.assignmentLoadingAddress))
+      && (!appliedFilters.assignmentDateFrom || assignmentDate >= appliedFilters.assignmentDateFrom)
+      && (!appliedFilters.assignmentDateTo || assignmentDate <= appliedFilters.assignmentDateTo)
+      && (!appliedFilters.assignmentStatus || row.dataset.status === appliedFilters.assignmentStatus);
+  }
   if (activeDocumentTab === 'applications') {
     const applicationDate = getInvoiceDate(row.querySelector('.invoice-cell'));
     return (!appliedFilters.invoiceStatus || row.dataset.status === appliedFilters.invoiceStatus)
@@ -576,13 +761,19 @@ function resetAdvancedFilters(update = true) {
 
 function updateFilterPanelFields() {
   const applicationsMode = activeDocumentTab === 'applications';
+  const assignmentsMode = activeDocumentTab === 'assignments';
   const archiveApplicationsWithoutStatusFilter = activeView === 'archive-completed' || activeView === 'archive-rejected';
-  topStatusControl.hidden = applicationsMode && (activeView === 'counterparty' || archiveApplicationsWithoutStatusFilter);
+  topStatusControl.hidden = assignmentsMode || (applicationsMode && (activeView === 'counterparty' || archiveApplicationsWithoutStatusFilter));
   filterPanel.classList.toggle('applications-mode', applicationsMode);
+  filterPanel.classList.toggle('assignments-mode', assignmentsMode);
   document.querySelector('#applicationFilterRow').hidden = !applicationsMode;
-  document.querySelectorAll('.invoice-filter-row').forEach((row) => { row.hidden = applicationsMode; });
+  assignmentFilterFields.hidden = !assignmentsMode;
+  standardFilterBottom.hidden = assignmentsMode;
+  document.querySelectorAll('.invoice-filter-row').forEach((row) => { row.hidden = applicationsMode || assignmentsMode; });
   const organizationStatusParts = enhancedFilterSelects.get(statusFilter);
-  if (organizationStatusParts) organizationStatusParts.wrapper.hidden = applicationsMode;
+  if (organizationStatusParts) organizationStatusParts.wrapper.hidden = applicationsMode || assignmentsMode;
+  const assignmentTopStatusParts = enhancedFilterSelects.get(assignmentTopStatusFilter);
+  if (assignmentTopStatusParts) assignmentTopStatusParts.wrapper.hidden = !(assignmentsMode && activeView === 'archive-all');
 }
 
 function getSearchTextNodes(row) {
@@ -649,13 +840,17 @@ function updateRows() {
   const activeRows = getActiveRows();
   if (getViewGroupKey() === 'archive') {
     const archiveGroup = activeDocumentTab === 'applications' ? applicationRowGroups.archive : rowGroups.archive;
-    archiveGroup.querySelectorAll('.table-row').forEach((row) => {
-      row.hidden = !activeRows.includes(row);
-    });
+    if (activeDocumentTab === 'assignments') {
+      archiveAssignmentRows.forEach((row) => { row.hidden = !activeRows.includes(row); });
+    } else {
+      archiveGroup.querySelectorAll('.table-row').forEach((row) => {
+        row.hidden = !activeRows.includes(row);
+      });
+    }
   }
   let visible = 0;
   activeRows.forEach((row) => {
-    const searchTarget = activeDocumentTab === 'applications' ? row.querySelector('.invoice-cell') : row;
+    const searchTarget = activeDocumentTab === 'applications' || activeDocumentTab === 'assignments' ? row.querySelector('.invoice-cell') : row;
     const searchTextNodes = getSearchTextNodes(searchTarget);
     const matchesText = terms.every((term) => {
       const termPattern = new RegExp(getSearchPattern(term), 'i');
@@ -668,6 +863,18 @@ function updateRows() {
       highlightSearchMatches(row, terms);
     }
   });
+  if (activeDocumentTab === 'assignments') {
+    assignmentsNoResults.hidden = activeView !== 'requires' || visible !== 0;
+    counterpartyAssignmentsNoResults.hidden = activeView !== 'counterparty' || visible !== 0;
+    draftAssignmentsNoResults.hidden = activeView !== 'drafts' || visible !== 0;
+    archiveAssignmentsNoResults.hidden = !activeView.startsWith('archive-') || visible !== 0;
+    emptyState.hidden = true;
+    return;
+  }
+  assignmentsNoResults.hidden = true;
+  counterpartyAssignmentsNoResults.hidden = true;
+  draftAssignmentsNoResults.hidden = true;
+  archiveAssignmentsNoResults.hidden = true;
   emptyState.querySelector('strong').textContent = activeDocumentTab === 'applications'
     ? activeView.startsWith('archive-') ? 'Заказы-заявки не найдены' : 'Заявки не найдены'
     : 'Накладные не найдены';
@@ -785,7 +992,7 @@ advancedFilterControls.filter((control) => control.tagName === 'SELECT').forEach
   select.addEventListener('change', () => select.classList.toggle('has-value', Boolean(select.value)));
 });
 
-[dateFromFilter, dateToFilter].forEach((dateInput) => {
+[dateFromFilter, dateToFilter, assignmentDateFromFilter, assignmentDateToFilter].forEach((dateInput) => {
   dateInput.addEventListener('input', () => dateInput.classList.toggle('has-value', Boolean(dateInput.value)));
 });
 
@@ -796,8 +1003,30 @@ applyFilters.addEventListener('click', () => {
 
 resetFilters.addEventListener('click', () => resetAdvancedFilters());
 
+applyAssignmentFilters.addEventListener('click', () => {
+  appliedFilters = readAdvancedFilters();
+  assignmentTopStatusFilter.value = appliedFilters.assignmentStatus;
+  syncCustomFilterSelect(assignmentTopStatusFilter);
+  updateRows();
+});
+
+assignmentTopStatusFilter.addEventListener('change', () => {
+  assignmentStatusFilter.value = assignmentTopStatusFilter.value;
+  syncCustomFilterSelect(assignmentStatusFilter);
+  appliedFilters.assignmentStatus = assignmentTopStatusFilter.value;
+  updateRows();
+});
+
+resetAssignmentFilters.addEventListener('click', () => resetAdvancedFilters());
+
 sectionButtons.forEach((button) => {
   button.addEventListener('click', () => {
+    receiptDetailView.hidden = true;
+    assignmentDetailView.hidden = true;
+    applicationDetailView.hidden = true;
+    invoiceDetailView.hidden = true;
+    document.querySelector('.page-header').hidden = false;
+    document.querySelector('.workspace').hidden = false;
     activeView = button.dataset.view;
     const activeGroupKey = getViewGroupKey();
     const documentsSectionExpanded = activeView === 'requires' || activeView === 'counterparty';
@@ -806,8 +1035,27 @@ sectionButtons.forEach((button) => {
     documentSubnavButtons.forEach((item) => { item.hidden = !documentsSectionExpanded; });
     archiveNav.setAttribute('aria-expanded', String(archiveSectionExpanded));
     archiveSubnavButtons.forEach((item) => { item.hidden = !archiveSectionExpanded; });
-    applicationTab.textContent = archiveSectionExpanded ? 'Заказы-заявки' : 'Заявки';
-    assignmentsTab.hidden = archiveSectionExpanded;
+    applicationTab.textContent = 'Заказы-заявки';
+    const archiveHasAssignments = activeView === 'archive-all' || activeView === 'archive-completed' || activeView === 'archive-trash';
+    assignmentsTab.hidden = archiveSectionExpanded && !archiveHasAssignments;
+    const archiveHasReceipts = activeView === 'archive-all' || activeView === 'archive-completed';
+    receiptsTab.hidden = !archiveHasReceipts;
+    if (activeDocumentTab === 'receipts' && !archiveHasReceipts) {
+      activeDocumentTab = 'applications';
+      document.querySelectorAll('.tabs button').forEach((tab) => {
+        const isApplicationsTab = tab === applicationTab;
+        tab.classList.toggle('selected', isApplicationsTab);
+        tab.setAttribute('aria-selected', String(isApplicationsTab));
+      });
+    }
+    if (activeDocumentTab === 'assignments' && archiveSectionExpanded && !archiveHasAssignments) {
+      activeDocumentTab = 'applications';
+      document.querySelectorAll('.tabs button').forEach((tab) => {
+        const isApplicationsTab = tab === applicationTab;
+        tab.classList.toggle('selected', isApplicationsTab);
+        tab.setAttribute('aria-selected', String(isApplicationsTab));
+      });
+    }
     if (activeView === 'drafts') {
       activeDocumentTab = 'applications';
       document.querySelectorAll('.tabs button').forEach((tab) => {
@@ -818,9 +1066,15 @@ sectionButtons.forEach((button) => {
     }
     invoiceTableHead.hidden = activeDocumentTab !== 'invoices';
     applicationTableHead.hidden = activeDocumentTab !== 'applications';
-    tableWrap.hidden = activeDocumentTab === 'assignments';
-    assignmentsEmpty.hidden = activeDocumentTab !== 'assignments';
-    toolbar.hidden = activeDocumentTab === 'assignments';
+    tableWrap.hidden = activeDocumentTab === 'assignments' || activeDocumentTab === 'receipts';
+    assignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'requires';
+    counterpartyAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'counterparty';
+    draftAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'drafts';
+    archiveAssignmentsView.hidden = activeDocumentTab !== 'assignments' || !archiveHasAssignments;
+    const activeViewHasAssignments = activeView === 'requires' || activeView === 'counterparty' || activeView === 'drafts' || archiveHasAssignments;
+    assignmentsEmpty.hidden = activeDocumentTab !== 'assignments' || activeViewHasAssignments;
+    receiptsView.hidden = activeDocumentTab !== 'receipts' || !archiveHasReceipts;
+    toolbar.hidden = activeDocumentTab === 'receipts' || (activeDocumentTab === 'assignments' && !activeViewHasAssignments);
     Object.entries(rowGroups).forEach(([view, group]) => {
       group.hidden = activeDocumentTab !== 'invoices' || view !== activeGroupKey;
     });
@@ -849,6 +1103,7 @@ sectionButtons.forEach((button) => {
         : archiveTitles[activeView] || 'Требуют действий';
     document.title = 'Тест статусной модели (1 вариант)';
     toolbar.classList.toggle('applications-mode', activeDocumentTab === 'applications');
+    toolbar.classList.toggle('assignments-mode', activeDocumentTab === 'assignments');
     toolbar.classList.toggle('drafts-mode', activeView === 'drafts');
     updateFilterPanelFields();
     filterPanel.hidden = true;
@@ -857,13 +1112,15 @@ sectionButtons.forEach((button) => {
     search.value = '';
     search.placeholder = activeDocumentTab === 'applications'
       ? 'Поиск по номеру заявки'
-      : 'Поиск по водителю, номеру телефона, номеру машины и прицепа, названию накладной';
-    search.setAttribute('aria-label', activeDocumentTab === 'applications' ? 'Поиск по заявкам' : 'Поиск по накладным');
+      : activeDocumentTab === 'assignments'
+        ? 'Поиск по номеру поручения'
+        : 'Поиск по водителю, номеру телефона, номеру машины и прицепа, названию накладной';
+    search.setAttribute('aria-label', activeDocumentTab === 'applications' ? 'Поиск по заявкам' : activeDocumentTab === 'assignments' ? 'Поиск по поручениям' : 'Поиск по накладным');
     resetAdvancedFilters(false);
     closeInvoiceStatusDropdown();
     updateInvoiceStatusOptions();
     populateFilterOptions();
-    [document.querySelector('#selectAll'), document.querySelector('#applicationSelectAll')].forEach((selectAll) => {
+    [document.querySelector('#selectAll'), document.querySelector('#applicationSelectAll'), document.querySelector('#assignmentSelectAll'), document.querySelector('#counterpartyAssignmentSelectAll'), document.querySelector('#draftAssignmentSelectAll'), document.querySelector('#archiveAssignmentSelectAll')].forEach((selectAll) => {
       selectAll.checked = false;
       selectAll.indeterminate = false;
     });
@@ -872,6 +1129,7 @@ sectionButtons.forEach((button) => {
       row.querySelector('.row-checkbox').checked = false;
     });
     updateRows();
+    updateReceiptsForView(true);
   });
 });
 
@@ -893,16 +1151,26 @@ document.querySelectorAll('.tabs button').forEach((tab) => {
   tab.addEventListener('click', () => {
     activeDocumentTab = tab.dataset.tab === 'Заявки'
       ? 'applications'
-      : tab.dataset.tab === 'Поручения' ? 'assignments' : 'invoices';
+      : tab.dataset.tab === 'Поручения'
+        ? 'assignments'
+        : tab.dataset.tab === 'Расписки' ? 'receipts' : 'invoices';
     document.querySelectorAll('.tabs button').forEach((item) => {
       item.classList.toggle('selected', item === tab);
       item.setAttribute('aria-selected', String(item === tab));
     });
     invoiceTableHead.hidden = activeDocumentTab !== 'invoices';
     applicationTableHead.hidden = activeDocumentTab !== 'applications';
-    tableWrap.hidden = activeDocumentTab === 'assignments';
-    assignmentsEmpty.hidden = activeDocumentTab !== 'assignments';
-    toolbar.hidden = activeDocumentTab === 'assignments';
+    tableWrap.hidden = activeDocumentTab === 'assignments' || activeDocumentTab === 'receipts';
+    assignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'requires';
+    counterpartyAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'counterparty';
+    draftAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'drafts';
+    const archiveHasAssignments = activeView === 'archive-all' || activeView === 'archive-completed' || activeView === 'archive-trash';
+    archiveAssignmentsView.hidden = activeDocumentTab !== 'assignments' || !archiveHasAssignments;
+    const activeViewHasAssignments = activeView === 'requires' || activeView === 'counterparty' || activeView === 'drafts' || archiveHasAssignments;
+    assignmentsEmpty.hidden = activeDocumentTab !== 'assignments' || activeViewHasAssignments;
+    const archiveHasReceipts = activeView === 'archive-all' || activeView === 'archive-completed';
+    receiptsView.hidden = activeDocumentTab !== 'receipts' || !archiveHasReceipts;
+    toolbar.hidden = activeDocumentTab === 'receipts' || (activeDocumentTab === 'assignments' && !activeViewHasAssignments);
     const activeGroupKey = getViewGroupKey();
     Object.entries(applicationRowGroups).forEach(([view, group]) => {
       group.hidden = activeDocumentTab !== 'applications' || view !== activeGroupKey;
@@ -911,6 +1179,7 @@ document.querySelectorAll('.tabs button').forEach((tab) => {
       group.hidden = activeDocumentTab !== 'invoices' || view !== activeGroupKey;
     });
     toolbar.classList.toggle('applications-mode', activeDocumentTab === 'applications');
+    toolbar.classList.toggle('assignments-mode', activeDocumentTab === 'assignments');
     toolbar.classList.toggle('drafts-mode', activeView === 'drafts');
     updateFilterPanelFields();
     filterPanel.hidden = true;
@@ -919,8 +1188,10 @@ document.querySelectorAll('.tabs button').forEach((tab) => {
     search.value = '';
     search.placeholder = activeDocumentTab === 'applications'
       ? 'Поиск по номеру заявки'
-      : 'Поиск по водителю, номеру телефона, номеру машины и прицепа, названию накладной';
-    search.setAttribute('aria-label', activeDocumentTab === 'applications' ? 'Поиск по заявкам' : 'Поиск по накладным');
+      : activeDocumentTab === 'assignments'
+        ? 'Поиск по номеру поручения'
+        : 'Поиск по водителю, номеру телефона, номеру машины и прицепа, названию накладной';
+    search.setAttribute('aria-label', activeDocumentTab === 'applications' ? 'Поиск по заявкам' : activeDocumentTab === 'assignments' ? 'Поиск по поручениям' : 'Поиск по накладным');
     resetAdvancedFilters(false);
     closeInvoiceStatusDropdown();
     updateInvoiceStatusOptions();
@@ -929,17 +1200,458 @@ document.querySelectorAll('.tabs button').forEach((tab) => {
       row.classList.remove('selected-row');
       row.querySelector('.row-checkbox').checked = false;
     });
-    [document.querySelector('#selectAll'), document.querySelector('#applicationSelectAll')].forEach((selectAll) => {
+    [document.querySelector('#selectAll'), document.querySelector('#applicationSelectAll'), document.querySelector('#assignmentSelectAll'), document.querySelector('#counterpartyAssignmentSelectAll'), document.querySelector('#draftAssignmentSelectAll'), document.querySelector('#archiveAssignmentSelectAll')].forEach((selectAll) => {
       selectAll.checked = false;
       selectAll.indeterminate = false;
     });
     updateRows();
+    updateReceiptsForView(true);
+  });
+});
+
+const receiptsTable = document.querySelector('.receipts-table');
+const receiptSeedRows = [...receiptsTable.querySelectorAll('.receipt-row')];
+const extraReceiptDates = [
+  '09.07', '08.07', '07.07', '06.07', '05.07',
+  '04.07', '03.07', '02.07', '01.07', '30.06',
+  '29.06', '28.06', '27.06', '26.06', '25.06',
+  '24.06', '23.06', '22.06', '21.06', '20.06',
+];
+
+extraReceiptDates.forEach((date, index) => {
+  const row = receiptSeedRows[index % receiptSeedRows.length].cloneNode(true);
+  row.querySelector(':scope > div:first-child strong').textContent = String(676541 + index).padStart(10, '0');
+  row.querySelector(':scope > div:first-child .receipt-muted').textContent = `от ${date}`;
+  receiptsTable.append(row);
+});
+
+const receiptRows = [...receiptsTable.querySelectorAll('.receipt-row')];
+receiptRows.forEach((row, index) => {
+  row.querySelector(':scope > div:first-child strong').textContent = String(676534 + index).padStart(10, '0');
+});
+const receiptsPagination = document.querySelector('.receipts-pagination');
+const receiptsPerPage = 20;
+const receiptsPageCount = Math.ceil(receiptRows.length / receiptsPerPage);
+let activeReceiptsPage = 1;
+
+function showReceiptsPage(page) {
+  activeReceiptsPage = Math.min(Math.max(page, 1), receiptsPageCount);
+  receiptRows.forEach((row, index) => {
+    row.hidden = Math.floor(index / receiptsPerPage) + 1 !== activeReceiptsPage;
+  });
+  receiptsPagination.querySelectorAll('[data-receipts-page]').forEach((button) => {
+    const isSelected = Number(button.dataset.receiptsPage) === activeReceiptsPage;
+    button.classList.toggle('selected', isSelected);
+    if (isSelected) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  const nextButton = receiptsPagination.querySelector('.receipts-next');
+  if (nextButton) nextButton.disabled = activeReceiptsPage === receiptsPageCount;
+}
+
+function updateReceiptsForView(resetPage = false) {
+  if (activeView === 'archive-all') {
+    receiptRows.forEach((row, index) => {
+      row.hidden = index >= 8;
+    });
+    receiptsPagination.hidden = true;
+    return;
+  }
+
+  if (resetPage) activeReceiptsPage = 1;
+  receiptsPagination.hidden = receiptsPageCount <= 1;
+  showReceiptsPage(activeReceiptsPage);
+}
+
+if (receiptsPageCount > 1) {
+  receiptsPagination.hidden = false;
+  for (let page = 1; page <= receiptsPageCount; page += 1) {
+    const pageButton = document.createElement('button');
+    pageButton.type = 'button';
+    pageButton.dataset.receiptsPage = String(page);
+    pageButton.textContent = String(page);
+    pageButton.addEventListener('click', () => showReceiptsPage(page));
+    receiptsPagination.append(pageButton);
+  }
+  const nextButton = document.createElement('button');
+  nextButton.className = 'receipts-next';
+  nextButton.type = 'button';
+  nextButton.append('Дальше');
+  const nextIcon = document.createElement('img');
+  nextIcon.src = 'data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiB2aWV3Qm94PSIwIDAgMjAgMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJhcnJvdy1jLXJpZ2h0LTIwLWxpZ2h0Ij4KPHBhdGggaWQ9Ikljb24iIGQ9Ik03LjAyMTQ1IDMuMzk2NDVDNy4yMTY3MSAzLjIwMTE4IDcuNTMzMjkgMy4yMDExOCA3LjcyODU1IDMuMzk2NDVMMTIuNTY0NSA4LjIzMjM2QzEzLjU0MDggOS4yMDg2NyAxMy41NDA4IDEwLjc5MTYgMTIuNTY0NSAxMS43Njc5TDcuNzI4NTUgMTYuNjAzOEM3LjUzMzI5IDE2Ljc5OTEgNy4yMTY3MSAxNi43OTkxIDcuMDIxNDUgMTYuNjAzOEM2LjgyNjE4IDE2LjQwODYgNi44MjYxOCAxNi4wOTIgNy4wMjE0NSAxNS44OTY3TDExLjg1NzQgMTEuMDYwOEMxMi40NDMyIDEwLjQ3NSAxMi40NDMyIDkuNTI1MjYgMTEuODU3NCA4LjkzOTQ3TDcuMDIxNDUgNC4xMDM1NUM2LjgyNjE5IDMuOTA4MjkgNi44MjYxOSAzLjU5MTcxIDcuMDIxNDUgMy4zOTY0NVoiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPC9nPgo8L3N2Zz4K';
+  nextIcon.alt = '';
+  nextButton.append(nextIcon);
+  nextButton.addEventListener('click', () => showReceiptsPage(activeReceiptsPage + 1));
+  receiptsPagination.append(nextButton);
+}
+
+showReceiptsPage(1);
+
+function openReceiptDetail(row) {
+  row.classList.remove('unread-document');
+  receiptDetailNumber.textContent = row.querySelector(':scope > div:first-child strong').textContent.trim();
+  assignmentDetailView.hidden = true;
+  applicationDetailView.hidden = true;
+  invoiceDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = true;
+  document.querySelector('.workspace').hidden = true;
+  receiptDetailView.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+receiptRows.forEach((row) => {
+  const number = row.querySelector(':scope > div:first-child strong').textContent.trim();
+  row.tabIndex = 0;
+  row.setAttribute('role', 'button');
+  row.setAttribute('aria-label', `Открыть экспедиторскую расписку ${number}`);
+  row.addEventListener('click', (event) => {
+    if (event.target.closest('a')) return;
+    openReceiptDetail(row);
+  });
+  row.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openReceiptDetail(row);
+    }
+  });
+});
+
+receiptDetailBack.addEventListener('click', () => {
+  receiptDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = false;
+  document.querySelector('.workspace').hidden = false;
+  document.querySelector('#receiptsTab').focus();
+});
+
+document.querySelector('#receiptDetailOrder').addEventListener('click', (event) => event.preventDefault());
+
+let lastOpenedAssignmentRow = null;
+
+function openAssignmentDetail(row) {
+  row.classList.remove('unread-document');
+  lastOpenedAssignmentRow = row;
+  assignmentDetailNumber.textContent = row.querySelector('.invoice-cell strong').textContent.trim();
+  assignmentDetailStatus.hidden = row.dataset.status !== 'assignment-draft';
+  receiptDetailView.hidden = true;
+  applicationDetailView.hidden = true;
+  invoiceDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = true;
+  document.querySelector('.workspace').hidden = true;
+  assignmentDetailView.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+assignmentRows.forEach((row) => {
+  const number = row.querySelector('.invoice-cell strong').textContent.trim();
+  row.setAttribute('role', 'button');
+  row.setAttribute('aria-label', `Открыть поручение экспедитору ${number}`);
+  row.addEventListener('click', (event) => {
+    if (event.target.closest('.progress') || event.target.closest('.row-check') || event.target.closest('.row-actions')) return;
+    openAssignmentDetail(row);
+  });
+  row.addEventListener('keydown', (event) => {
+    if (event.target !== row) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openAssignmentDetail(row);
+    }
+  });
+});
+
+assignmentDetailBack.addEventListener('click', () => {
+  assignmentDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = false;
+  document.querySelector('.workspace').hidden = false;
+  if (lastOpenedAssignmentRow) lastOpenedAssignmentRow.focus();
+});
+
+let lastOpenedApplicationRow = null;
+
+function openApplicationDetail(row) {
+  row.classList.remove('unread-document');
+  const invoiceCell = row.querySelector('.invoice-cell');
+  const number = invoiceCell.querySelector('strong').textContent.trim();
+  const customer = invoiceCell.nextElementSibling?.querySelector('strong')?.textContent.trim() || 'ООО «Глобал Логистик»';
+  lastOpenedApplicationRow = row;
+  applicationDetailNumber.textContent = number;
+  applicationInfoNumber.textContent = number;
+  applicationInfoDate.textContent = normalizeDetailDate(invoiceCell.querySelector('.muted')?.textContent || '05.08');
+  applicationCarrierName.textContent = customer;
+  const isSignatureError = row.dataset.status === 'error';
+  const isCounterpartyApplication = row.dataset.status === 'carrier-signature';
+  const isCompletedApplication = row.dataset.status === 'completed';
+  const isRejectedApplication = row.dataset.status === 'rejected';
+  const isDraftApplication = row.dataset.status === 'draft' || row.classList.contains('draft-row');
+  const isArchiveFinalApplication = isCompletedApplication || isRejectedApplication;
+  const isReadOnlyApplication = isCounterpartyApplication || isArchiveFinalApplication;
+  applicationPrimaryAction.textContent = isSignatureError ? 'Подписать снова' : 'Подписать';
+  applicationPrimaryAction.hidden = isReadOnlyApplication;
+  applicationEditAction.hidden = isSignatureError || isReadOnlyApplication;
+  applicationDetailStatus.hidden = !isDraftApplication;
+  applicationCompletedTabs.forEach((tab) => { tab.hidden = !isArchiveFinalApplication; });
+  receiptDetailView.hidden = true;
+  assignmentDetailView.hidden = true;
+  invoiceDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = true;
+  document.querySelector('.workspace').hidden = true;
+  applicationDetailView.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+function closeApplicationDetail() {
+  applicationDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = false;
+  document.querySelector('.workspace').hidden = false;
+  if (lastOpenedApplicationRow) lastOpenedApplicationRow.focus();
+}
+
+applicationDetailBack.addEventListener('click', closeApplicationDetail);
+applicationDetailListBack.addEventListener('click', closeApplicationDetail);
+
+let lastOpenedInvoiceRow = null;
+
+function normalizeDetailDate(shortDate) {
+  const value = shortDate.replace(/^от\s+/, '').trim();
+  return `${value}.2026`;
+}
+
+function openInvoiceDetail(row) {
+  row.classList.remove('unread-document');
+  const cells = [...row.children].filter((cell) => !cell.classList.contains('row-check') && !cell.classList.contains('row-actions'));
+  const invoiceCell = row.querySelector('.invoice-cell');
+  const senderCell = cells[1];
+  const recipientCell = cells[2];
+  const cargoCell = cells[3];
+  const number = invoiceCell.querySelector('strong').textContent.trim();
+  const progressSegments = [...invoiceCell.querySelector('.progress')?.children || []].filter((segment) => !segment.classList.contains('progress-tooltip'));
+  const isCarrierSignature = progressSegments.some((segment, index) => segment.classList.contains('striped') && index > 0);
+  const isInTransit = row.dataset.status === 'route';
+  const isAtUnloading = row.dataset.status === 'unloading';
+  const isTransportCost = row.dataset.status === 'transport-cost' && Boolean(row.closest('#rows'));
+  const isReadyToSign = row.dataset.status === 'signature' && Boolean(row.closest('#rows'));
+  const isSignatureError = row.dataset.status === 'error' && Boolean(row.closest('#rows'));
+  const isDraft = Boolean(row.closest('#draftRows')) || row.dataset.status === 'draft';
+  const isCompletedDelivery = row.dataset.archiveSection === 'completed' && row.dataset.status === 'delivery';
+  const isCompletedTransportCost = row.dataset.archiveSection === 'completed' && row.dataset.status === 'transport-cost';
+  const isCompletedInvoice = isCompletedDelivery || isCompletedTransportCost;
+  const isCarrierRejection = row.dataset.archiveSection === 'rejected' && row.dataset.status === 'carrier-rejection';
+  const isRejectedTransportCost = row.dataset.archiveSection === 'rejected' && row.dataset.status === 'transport-cost';
+  const isUnsignedStart = isReadyToSign || isDraft;
+  const isCarrierAtUnloading = isAtUnloading && progressSegments.some((segment, index) => segment.classList.contains('striped') && index === 3);
+  const isRejectedAtUnloading = isAtUnloading && progressSegments.some((segment) => segment.dataset.tooltip?.includes('отказал'));
+  const hasCompletedLoading = isInTransit || isAtUnloading || isTransportCost || isCompletedInvoice || isRejectedTransportCost;
+
+  lastOpenedInvoiceRow = row;
+  invoiceDetailNumber.textContent = number;
+  invoiceDetailStatus.hidden = !isDraft;
+  invoiceInfoNumber.textContent = number;
+  invoiceInfoDate.textContent = normalizeDetailDate(invoiceCell.querySelector('.muted')?.textContent || '23.07');
+  invoiceSenderName.textContent = senderCell?.querySelector('strong')?.textContent.trim() || (isDraft ? '' : 'ООО «Хендэ Мотор СНГ»');
+  invoiceSenderContact.textContent = senderCell?.querySelector('.muted')?.innerText.trim().split('\n')[0] || (isDraft ? '' : '+79006667766');
+  invoiceRecipientName.textContent = recipientCell?.querySelector('strong')?.textContent.trim() || (isDraft ? '' : 'ООО «Инжиниринг Сервис»');
+  invoiceRecipientAddress.textContent = recipientCell?.querySelector('.muted')?.textContent.trim() || (isDraft ? '' : 'Россия, 620000, г. Екатеринбург');
+  invoiceCargoName.textContent = cargoCell?.querySelector('strong')?.textContent.trim() || (isDraft ? '' : 'Холодильное оборудование');
+  invoiceSenderSignature.classList.toggle('is-muted', isUnsignedStart);
+  invoiceSenderIcon.src = isSignatureError ? 'data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGcgaWQ9ImNlcnQtcm9zZXR0ZS0xNi1saWdodCI+CiAgICA8ZyBpZD0iSWNvbiI+CiAgICAgIDxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNOCAyLjYyNUM2LjEzNjA0IDIuNjI1IDQuNjI1IDQuMTM2MDQgNC42MjUgNi4wMDAwMUM0LjYyNSA3Ljg2Mzk3IDYuMTM2MDQgOS4zNzUwMSA4IDkuMzc1MDFDOS44NjM5NyA5LjM3NTAxIDExLjM3NSA3Ljg2Mzk3IDExLjM3NSA2LjAwMDAxQzExLjM3NSA0LjEzNjA0IDkuODYzOTcgMi42MjUgOCAyLjYyNVpNNS42MjUgNi4wMDAwMUM1LjYyNSA0LjY4ODMzIDYuNjg4MzMgMy42MjUgOCAzLjYyNUM5LjMxMTY4IDMuNjI1IDEwLjM3NSA0LjY4ODMzIDEwLjM3NSA2LjAwMDAxQzEwLjM3NSA3LjMxMTY5IDkuMzExNjggOC4zNzUwMSA4IDguMzc1MDFDNi42ODgzMyA4LjM3NTAxIDUuNjI1IDcuMzExNjkgNS42MjUgNi4wMDAwMVoiIGZpbGw9IiNDNTAyMjAiLz4KICAgICAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yLjM3NTI1IDUuOTQ5NzFDMi4zNzUyNSAyLjg0MzI0IDQuODkzNTMgMC4zMjQ5NTEgOCAwLjMyNDk1MUMxMS4xMDY1IDAuMzI0OTUxIDEzLjYyNDggMi44NDMyNCAxMy42MjQ4IDUuOTQ5NzFDMTMuNjI0OCA3LjQyMjcyIDEzLjA1ODUgOC43NjM0OCAxMi4xMzE5IDkuNzY2MjJMMTMuOTM4NCAxMi4zNDYyQzE0LjI1NTIgMTIuNzk4NiAxNC4xNDUyIDEzLjQyMjIgMTMuNjkyOCAxMy43Mzg5TDExLjE1NzMgMTUuNTE0M0MxMC43MDQ5IDE1LjgzMTEgMTAuMDgxNCAxNS43MjEyIDkuNzY0NTggMTUuMjY4OEw4IDEyLjc0ODdMNi4yMzU0MiAxNS4yNjg4QzUuOTE4NjUgMTUuNzIxMiA1LjI5NTEgMTUuODMxMSA0Ljg0MjcgMTUuNTE0M0wyLjMwNzE3IDEzLjczODlDMS44NTQ3NiAxMy40MjIyIDEuNzQ0ODEgMTIuNzk4NiAyLjA2MTU5IDEyLjM0NjJMMy44NjgxMiA5Ljc2NjIyQzIuOTQxNDYgOC43NjM0OCAyLjM3NTI1IDcuNDIyNzIgMi4zNzUyNSA1Ljk0OTcxWk04IDEuMzI0OTVDNS40NDU4MiAxLjMyNDk1IDMuMzc1MjUgMy4zOTU1MiAzLjM3NTI1IDUuOTQ5NzFDMy4zNzUyNSA4LjUwMzg5IDUuNDQ1ODIgMTAuNTc0NSA4IDEwLjU3NDVDMTAuNTU0MiAxMC41NzQ1IDEyLjYyNDggOC41MDM4OSAxMi42MjQ4IDUuOTQ5NzFDMTIuNjI0OCAzLjM5NTUyIDEwLjU1NDIgMS4zMjQ5NSA4IDEuMzI0OTVaTTguMzg3OTIgMTEuNTYxM0M5LjUwODgxIDExLjQ4NDkgMTAuNTM5NSAxMS4wODAyIDExLjM4NDcgMTAuNDQyNUwxMy4xMTkzIDEyLjkxOThMMTAuNTgzNyAxNC42OTUyTDguNDE2MjMgMTEuNTk5N0M4LjQwNzQ2IDExLjU4NjUgOC4zOTgwMiAxMS41NzM3IDguMzg3OTIgMTEuNTYxM1pNNC42MTUzNCAxMC40NDI1QzUuNDYwNDUgMTEuMDgwMiA2LjQ5MTE5IDExLjQ4NDkgNy42MTIwOSAxMS41NjEzQzcuNjAxOTggMTEuNTczNyA3LjU5MjU0IDExLjU4NjUgNy41ODM3NyAxMS41OTk3TDUuNDE2MjcgMTQuNjk1MkwyLjg4MDc0IDEyLjkxOThMNC42MTUzNCAxMC40NDI1WiIgZmlsbD0iI0M1MDIyMCIvPgogICAgPC9nPgogIDwvZz4KPC9zdmc+Cg==' : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04LjAwMDIxIDIuNjI1QzYuMTM2MjQgMi42MjUgNC42MjUyIDQuMTM2MDQgNC42MjUyIDYuMDAwMDFDNC42MjUyIDcuODYzOTcgNi4xMzYyNCA5LjM3NTAxIDguMDAwMjEgOS4zNzUwMUM5Ljg2NDE3IDkuMzc1MDEgMTEuMzc1MiA3Ljg2Mzk3IDExLjM3NTIgNi4wMDAwMUMxMS4zNzUyIDQuMTM2MDQgOS44NjQxNyAyLjYyNSA4LjAwMDIxIDIuNjI1Wk01LjYyNTIgNi4wMDAwMUM1LjYyNTIgNC42ODgzMyA2LjY4ODUzIDMuNjI1IDguMDAwMjEgMy42MjVDOS4zMTE4OSAzLjYyNSAxMC4zNzUyIDQuNjg4MzMgMTAuMzc1MiA2LjAwMDAxQzEwLjM3NTIgNy4zMTE2OSA5LjMxMTg5IDguMzc1MDEgOC4wMDAyMSA4LjM3NTAxQzYuNjg4NTMgOC4zNzUwMSA1LjYyNTIgNy4zMTE2OSA1LjYyNTIgNi4wMDAwMVoiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yLjM3NTQ1IDUuOTQ5NzFDMi4zNzU0NSAyLjg0MzI0IDQuODkzNzQgMC4zMjQ5NTEgOC4wMDAyIDAuMzI0OTUxQzExLjEwNjcgMC4zMjQ5NTEgMTMuNjI1IDIuODQzMjQgMTMuNjI1IDUuOTQ5NzFDMTMuNjI1IDcuNDIyNzIgMTMuMDU4NyA4Ljc2MzQ4IDEyLjEzMjEgOS43NjYyMkwxMy45Mzg2IDEyLjM0NjJDMTQuMjU1NCAxMi43OTg2IDE0LjE0NTQgMTMuNDIyMiAxMy42OTMgMTMuNzM4OUwxMS4xNTc1IDE1LjUxNDNDMTAuNzA1MSAxNS44MzExIDEwLjA4MTYgMTUuNzIxMiA5Ljc2NDc4IDE1LjI2ODhMOC4wMDAyIDEyLjc0ODdMNi4yMzU2MyAxNS4yNjg4QzUuOTE4ODUgMTUuNzIxMiA1LjI5NTMgMTUuODMxMSA0Ljg0MjkgMTUuNTE0M0wyLjMwNzM3IDEzLjczODlDMS44NTQ5NiAxMy40MjIyIDEuNzQ1MDIgMTIuNzk4NiAyLjA2MTc5IDEyLjM0NjJMMy44NjgzMyA5Ljc2NjIyQzIuOTQxNjcgOC43NjM0OCAyLjM3NTQ1IDcuNDIyNzIgMi4zNzU0NSA1Ljk0OTcxWk04LjAwMDIgMS4zMjQ5NUM1LjQ0NjAyIDEuMzI0OTUgMy4zNzU0NSAzLjM5NTUyIDMuMzc1NDUgNS45NDk3MUMzLjM3NTQ1IDguNTAzODkgNS40NDYwMiAxMC41NzQ1IDguMDAwMiAxMC41NzQ1QzEwLjU1NDQgMTAuNTc0NSAxMi42MjUgOC41MDM4OSAxMi42MjUgNS45NDk3MUMxMi42MjUgMy4zOTU1MiAxMC41NTQ0IDEuMzI0OTUgOC4wMDAyIDEuMzI0OTVaTTguMzg4MTIgMTEuNTYxM0M5LjUwOTAyIDExLjQ4NDkgMTAuNTM5OCAxMS4wODAyIDExLjM4NDkgMTAuNDQyNUwxMy4xMTk1IDEyLjkxOThMMTAuNTgzOSAxNC42OTUyTDguNDE2NDQgMTEuNTk5N0M4LjQwNzY2IDExLjU4NjUgOC4zOTgyMiAxMS41NzM3IDguMzg4MTIgMTEuNTYxM1pNNC42MTU1NCAxMC40NDI1QzUuNDYwNjUgMTEuMDgwMiA2LjQ5MTM5IDExLjQ4NDkgNy42MTIyOSAxMS41NjEzQzcuNjAyMTkgMTEuNTczNyA3LjU5Mjc0IDExLjU4NjUgNy41ODM5NyAxMS41OTk3TDUuNDE2NDcgMTQuNjk1MkwyLjg4MDk1IDEyLjkxOThMNC42MTU1NCAxMC40NDI1WiIgZmlsbD0iYmxhY2siIGZpbGwtb3BhY2l0eT0iMC44OCIvPgo8L3N2Zz4K';
+  invoiceSenderSigner.hidden = isUnsignedStart;
+  invoiceDriverName.hidden = !(isCarrierSignature || hasCompletedLoading || isCarrierRejection);
+  invoiceCarrierSigner.hidden = !(hasCompletedLoading || isCarrierRejection);
+  invoiceCarrierSignature.classList.toggle('is-muted', !(hasCompletedLoading || isCarrierRejection));
+  invoiceCarrierIcon.src = isCarrierRejection ? 'data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGcgaWQ9ImNlcnQtcm9zZXR0ZS0xNi1saWdodCI+CiAgICA8ZyBpZD0iSWNvbiI+CiAgICAgIDxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNOCAyLjYyNUM2LjEzNjA0IDIuNjI1IDQuNjI1IDQuMTM2MDQgNC42MjUgNi4wMDAwMUM0LjYyNSA3Ljg2Mzk3IDYuMTM2MDQgOS4zNzUwMSA4IDkuMzc1MDFDOS44NjM5NyA5LjM3NTAxIDExLjM3NSA3Ljg2Mzk3IDExLjM3NSA2LjAwMDAxQzExLjM3NSA0LjEzNjA0IDkuODYzOTcgMi42MjUgOCAyLjYyNVpNNS42MjUgNi4wMDAwMUM1LjYyNSA0LjY4ODMzIDYuNjg4MzMgMy42MjUgOCAzLjYyNUM5LjMxMTY4IDMuNjI1IDEwLjM3NSA0LjY4ODMzIDEwLjM3NSA2LjAwMDAxQzEwLjM3NSA3LjMxMTY5IDkuMzExNjggOC4zNzUwMSA4IDguMzc1MDFDNi42ODgzMyA4LjM3NTAxIDUuNjI1IDcuMzExNjkgNS42MjUgNi4wMDAwMVoiIGZpbGw9IiNDNTAyMjAiLz4KICAgICAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yLjM3NTI1IDUuOTQ5NzFDMi4zNzUyNSAyLjg0MzI0IDQuODkzNTMgMC4zMjQ5NTEgOCAwLjMyNDk1MUMxMS4xMDY1IDAuMzI0OTUxIDEzLjYyNDggMi44NDMyNCAxMy42MjQ4IDUuOTQ5NzFDMTMuNjI0OCA3LjQyMjcyIDEzLjA1ODUgOC43NjM0OCAxMi4xMzE5IDkuNzY2MjJMMTMuOTM4NCAxMi4zNDYyQzE0LjI1NTIgMTIuNzk4NiAxNC4xNDUyIDEzLjQyMjIgMTMuNjkyOCAxMy43Mzg5TDExLjE1NzMgMTUuNTE0M0MxMC43MDQ5IDE1LjgzMTEgMTAuMDgxNCAxNS43MjEyIDkuNzY0NTggMTUuMjY4OEw4IDEyLjc0ODdMNi4yMzU0MiAxNS4yNjg4QzUuOTE4NjUgMTUuNzIxMiA1LjI5NTEgMTUuODMxMSA0Ljg0MjcgMTUuNTE0M0wyLjMwNzE3IDEzLjczODlDMS44NTQ3NiAxMy40MjIyIDEuNzQ0ODEgMTIuNzk4NiAyLjA2MTU5IDEyLjM0NjJMMy44NjgxMiA5Ljc2NjIyQzIuOTQxNDYgOC43NjM0OCAyLjM3NTI1IDcuNDIyNzIgMi4zNzUyNSA1Ljk0OTcxWk04IDEuMzI0OTVDNS40NDU4MiAxLjMyNDk1IDMuMzc1MjUgMy4zOTU1MiAzLjM3NTI1IDUuOTQ5NzFDMy4zNzUyNSA4LjUwMzg5IDUuNDQ1ODIgMTAuNTc0NSA4IDEwLjU3NDVDMTAuNTU0MiAxMC41NzQ1IDEyLjYyNDggOC41MDM4OSAxMi42MjQ4IDUuOTQ5NzFDMTIuNjI0OCAzLjM5NTUyIDEwLjU1NDIgMS4zMjQ5NSA4IDEuMzI0OTVaTTguMzg3OTIgMTEuNTYxM0M5LjUwODgxIDExLjQ4NDkgMTAuNTM5NSAxMS4wODAyIDExLjM4NDcgMTAuNDQyNUwxMy4xMTkzIDEyLjkxOThMMTAuNTgzNyAxNC42OTUyTDguNDE2MjMgMTEuNTk5N0M4LjQwNzQ2IDExLjU4NjUgOC4zOTgwMiAxMS41NzM3IDguMzg3OTIgMTEuNTYxM1pNNC42MTUzNCAxMC40NDI1QzUuNDYwNDUgMTEuMDgwMiA2LjQ5MTE5IDExLjQ4NDkgNy42MTIwOSAxMS41NjEzQzcuNjAxOTggMTEuNTczNyA3LjU5MjU0IDExLjU4NjUgNy41ODM3NyAxMS41OTk3TDUuNDE2MjcgMTQuNjk1MkwyLjg4MDc0IDEyLjkxOThMNC42MTUzNCAxMC40NDI1WiIgZmlsbD0iI0M1MDIyMCIvPgogICAgPC9nPgogIDwvZz4KPC9zdmc+Cg==' : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04LjAwMDIxIDIuNjI1QzYuMTM2MjQgMi42MjUgNC42MjUyIDQuMTM2MDQgNC42MjUyIDYuMDAwMDFDNC42MjUyIDcuODYzOTcgNi4xMzYyNCA5LjM3NTAxIDguMDAwMjEgOS4zNzUwMUM5Ljg2NDE3IDkuMzc1MDEgMTEuMzc1MiA3Ljg2Mzk3IDExLjM3NTIgNi4wMDAwMUMxMS4zNzUyIDQuMTM2MDQgOS44NjQxNyAyLjYyNSA4LjAwMDIxIDIuNjI1Wk01LjYyNTIgNi4wMDAwMUM1LjYyNTIgNC42ODgzMyA2LjY4ODUzIDMuNjI1IDguMDAwMjEgMy42MjVDOS4zMTE4OSAzLjYyNSAxMC4zNzUyIDQuNjg4MzMgMTAuMzc1MiA2LjAwMDAxQzEwLjM3NTIgNy4zMTE2OSA5LjMxMTg5IDguMzc1MDEgOC4wMDAyMSA4LjM3NTAxQzYuNjg4NTMgOC4zNzUwMSA1LjYyNTIgNy4zMTE2OSA1LjYyNTIgNi4wMDAwMVoiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yLjM3NTQ1IDUuOTQ5NzFDMi4zNzU0NSAyLjg0MzI0IDQuODkzNzQgMC4zMjQ5NTEgOC4wMDAyIDAuMzI0OTUxQzExLjEwNjcgMC4zMjQ5NTEgMTMuNjI1IDIuODQzMjQgMTMuNjI1IDUuOTQ5NzFDMTMuNjI1IDcuNDIyNzIgMTMuMDU4NyA4Ljc2MzQ4IDEyLjEzMjEgOS43NjYyMkwxMy45Mzg2IDEyLjM0NjJDMTQuMjU1NCAxMi43OTg2IDE0LjE0NTQgMTMuNDIyMiAxMy42OTMgMTMuNzM4OUwxMS4xNTc1IDE1LjUxNDNDMTAuNzA1MSAxNS44MzExIDEwLjA4MTYgMTUuNzIxMiA5Ljc2NDc4IDE1LjI2ODhMOC4wMDAyIDEyLjc0ODdMNi4yMzU2MyAxNS4yNjg4QzUuOTE4ODUgMTUuNzIxMiA1LjI5NTMgMTUuODMxMSA0Ljg0MjkgMTUuNTE0M0wyLjMwNzM3IDEzLjczODlDMS44NTQ5NiAxMy40MjIyIDEuNzQ1MDIgMTIuNzk4NiAyLjA2MTc5IDEyLjM0NjJMMy44NjgzMyA5Ljc2NjIyQzIuOTQxNjcgOC43NjM0OCAyLjM3NTQ1IDcuNDIyNzIgMi4zNzU0NSA1Ljk0OTcxWk04LjAwMDIgMS4zMjQ5NUM1LjQ0NjAyIDEuMzI0OTUgMy4zNzU0NSAzLjM5NTUyIDMuMzc1NDUgNS45NDk3MUMzLjM3NTQ1IDguNTAzODkgNS40NDYwMiAxMC41NzQ1IDguMDAwMiAxMC41NzQ1QzEwLjU1NDQgMTAuNTc0NSAxMi42MjUgOC41MDM4OSAxMi42MjUgNS45NDk3MUMxMi42MjUgMy4zOTU1MiAxMC41NTQ0IDEuMzI0OTUgOC4wMDAyIDEuMzI0OTVaTTguMzg4MTIgMTEuNTYxM0M5LjUwOTAyIDExLjQ4NDkgMTAuNTM5OCAxMS4wODAyIDExLjM4NDkgMTAuNDQyNUwxMy4xMTk1IDEyLjkxOThMMTAuNTgzOSAxNC42OTUyTDguNDE2NDQgMTEuNTk5N0M4LjQwNzY2IDExLjU4NjUgOC4zOTgyMiAxMS41NzM3IDguMzg4MTIgMTEuNTYxM1pNNC42MTU1NCAxMC40NDI1QzUuNDYwNjUgMTEuMDgwMiA2LjQ5MTM5IDExLjQ4NDkgNy42MTIyOSAxMS41NjEzQzcuNjAyMTkgMTEuNTczNyA3LjU5Mjc0IDExLjU4NjUgNy41ODM5NyAxMS41OTk3TDUuNDE2NDcgMTQuNjk1MkwyLjg4MDk1IDEyLjkxOThMNC42MTU1NCAxMC40NDI1WiIgZmlsbD0iYmxhY2siIGZpbGwtb3BhY2l0eT0iMC44OCIvPgo8L3N2Zz4K';
+  invoiceLoadingComment.hidden = !isCarrierRejection;
+  invoiceQrSignature.classList.toggle('is-muted', !hasCompletedLoading);
+  invoiceQrLabel.textContent = hasCompletedLoading ? 'QR-код получен' : 'QR-код';
+  invoiceLoadingStep.classList.toggle('passed', isAtUnloading || isTransportCost || isCompletedInvoice || isRejectedTransportCost);
+  invoiceCreatedStep.classList.toggle('rejected', isCarrierRejection);
+  invoiceLoadingStep.classList.toggle('error', isSignatureError || isCarrierRejection);
+  invoiceLoadingTitle.textContent = isSignatureError || isCarrierRejection ? 'До рейса' : 'Погрузка';
+  const loadingToggle = document.querySelector('#invoiceLoadingToggle');
+  const loadingSignatures = document.querySelector('#invoiceLoadingSignatures');
+  const isLoadingExpanded = !(isTransportCost || isCompletedInvoice || isRejectedTransportCost);
+  loadingToggle.setAttribute('aria-expanded', String(isLoadingExpanded));
+  loadingToggle.querySelector('.invoice-timeline-chevron').classList.toggle('expanded', isLoadingExpanded);
+  loadingSignatures.hidden = !isLoadingExpanded;
+  invoiceUnloadingStep.classList.toggle('completed', isAtUnloading || isTransportCost || isCompletedInvoice || isRejectedTransportCost);
+  invoiceUnloadingStep.classList.toggle('passed', isTransportCost || isCompletedInvoice);
+  invoiceUnloadingStep.classList.toggle('rejected', isRejectedTransportCost);
+  invoiceUnloadingToggle.setAttribute('aria-expanded', String(isAtUnloading));
+  invoiceUnloadingChevron.hidden = !(isAtUnloading || isTransportCost);
+  invoiceUnloadingChevron.classList.toggle('expanded', isAtUnloading);
+  invoiceUnloadingSignatures.hidden = !isAtUnloading;
+  invoiceUnloadingComment.hidden = isRejectedAtUnloading || isCarrierAtUnloading;
+  invoiceUnloadingDriver.classList.toggle('is-muted', !isCarrierAtUnloading);
+  invoiceUnloadingDriverName.hidden = !isCarrierAtUnloading;
+  invoiceUnloadingCarrier.classList.add('is-muted');
+  invoiceCostStep.hidden = !(isTransportCost || isCompletedTransportCost || isRejectedTransportCost);
+  invoiceCostStep.classList.toggle('error', isRejectedTransportCost);
+  invoiceCostStep.classList.toggle('passed', isCompletedTransportCost || isRejectedTransportCost);
+  invoiceCompleteStep.classList.toggle('completed', isCompletedInvoice || isRejectedTransportCost);
+  invoiceCostToggle.setAttribute('aria-expanded', String(isTransportCost));
+  invoiceCostChevron.hidden = false;
+  invoiceCostChevron.classList.toggle('expanded', isTransportCost);
+  invoiceCostSignatures.hidden = !isTransportCost;
+  invoiceCostSenderSignature.classList.toggle('is-muted', !(isCompletedTransportCost || isRejectedTransportCost));
+  invoiceCostSenderIcon.src = isRejectedTransportCost ? 'data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGcgaWQ9ImNlcnQtcm9zZXR0ZS0xNi1saWdodCI+CiAgICA8ZyBpZD0iSWNvbiI+CiAgICAgIDxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNOCAyLjYyNUM2LjEzNjA0IDIuNjI1IDQuNjI1IDQuMTM2MDQgNC42MjUgNi4wMDAwMUM0LjYyNSA3Ljg2Mzk3IDYuMTM2MDQgOS4zNzUwMSA4IDkuMzc1MDFDOS44NjM5NyA5LjM3NTAxIDExLjM3NSA3Ljg2Mzk3IDExLjM3NSA2LjAwMDAxQzExLjM3NSA0LjEzNjA0IDkuODYzOTcgMi42MjUgOCAyLjYyNVpNNS42MjUgNi4wMDAwMUM1LjYyNSA0LjY4ODMzIDYuNjg4MzMgMy42MjUgOCAzLjYyNUM5LjMxMTY4IDMuNjI1IDEwLjM3NSA0LjY4ODMzIDEwLjM3NSA2LjAwMDAxQzEwLjM3NSA3LjMxMTY5IDkuMzExNjggOC4zNzUwMSA4IDguMzc1MDFDNi42ODgzMyA4LjM3NTAxIDUuNjI1IDcuMzExNjkgNS42MjUgNi4wMDAwMVoiIGZpbGw9IiNDNTAyMjAiLz4KICAgICAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yLjM3NTI1IDUuOTQ5NzFDMi4zNzUyNSAyLjg0MzI0IDQuODkzNTMgMC4zMjQ5NTEgOCAwLjMyNDk1MUMxMS4xMDY1IDAuMzI0OTUxIDEzLjYyNDggMi44NDMyNCAxMy42MjQ4IDUuOTQ5NzFDMTMuNjI0OCA3LjQyMjcyIDEzLjA1ODUgOC43NjM0OCAxMi4xMzE5IDkuNzY2MjJMMTMuOTM4NCAxMi4zNDYyQzE0LjI1NTIgMTIuNzk4NiAxNC4xNDUyIDEzLjQyMjIgMTMuNjkyOCAxMy43Mzg5TDExLjE1NzMgMTUuNTE0M0MxMC43MDQ5IDE1LjgzMTEgMTAuMDgxNCAxNS43MjEyIDkuNzY0NTggMTUuMjY4OEw4IDEyLjc0ODdMNi4yMzU0MiAxNS4yNjg4QzUuOTE4NjUgMTUuNzIxMiA1LjI5NTEgMTUuODMxMSA0Ljg0MjcgMTUuNTE0M0wyLjMwNzE3IDEzLjczODlDMS44NTQ3NiAxMy40MjIyIDEuNzQ0ODEgMTIuNzk4NiAyLjA2MTU5IDEyLjM0NjJMMy44NjgxMiA5Ljc2NjIyQzIuOTQxNDYgOC43NjM0OCAyLjM3NTI1IDcuNDIyNzIgMi4zNzUyNSA1Ljk0OTcxWk04IDEuMzI0OTVDNS40NDU4MiAxLjMyNDk1IDMuMzc1MjUgMy4zOTU1MiAzLjM3NTI1IDUuOTQ5NzFDMy4zNzUyNSA4LjUwMzg5IDUuNDQ1ODIgMTAuNTc0NSA4IDEwLjU3NDVDMTAuNTU0MiAxMC41NzQ1IDEyLjYyNDggOC41MDM4OSAxMi42MjQ4IDUuOTQ5NzFDMTIuNjI0OCAzLjM5NTUyIDEwLjU1NDIgMS4zMjQ5NSA4IDEuMzI0OTVaTTguMzg3OTIgMTEuNTYxM0M5LjUwODgxIDExLjQ4NDkgMTAuNTM5NSAxMS4wODAyIDExLjM4NDcgMTAuNDQyNUwxMy4xMTkzIDEyLjkxOThMMTAuNTgzNyAxNC42OTUyTDguNDE2MjMgMTEuNTk5N0M4LjQwNzQ2IDExLjU4NjUgOC4zOTgwMiAxMS41NzM3IDguMzg3OTIgMTEuNTYxM1pNNC42MTUzNCAxMC40NDI1QzUuNDYwNDUgMTEuMDgwMiA2LjQ5MTE5IDExLjQ4NDkgNy42MTIwOSAxMS41NjEzQzcuNjAxOTggMTEuNTczNyA3LjU5MjU0IDExLjU4NjUgNy41ODM3NyAxMS41OTk3TDUuNDE2MjcgMTQuNjk1MkwyLjg4MDc0IDEyLjkxOThMNC42MTUzNCAxMC40NDI1WiIgZmlsbD0iI0M1MDIyMCIvPgogICAgPC9nPgogIDwvZz4KPC9zdmc+Cg==' : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04LjAwMDIxIDIuNjI1QzYuMTM2MjQgMi42MjUgNC42MjUyIDQuMTM2MDQgNC42MjUyIDYuMDAwMDFDNC42MjUyIDcuODYzOTcgNi4xMzYyNCA5LjM3NTAxIDguMDAwMjEgOS4zNzUwMUM5Ljg2NDE3IDkuMzc1MDEgMTEuMzc1MiA3Ljg2Mzk3IDExLjM3NTIgNi4wMDAwMUMxMS4zNzUyIDQuMTM2MDQgOS44NjQxNyAyLjYyNSA4LjAwMDIxIDIuNjI1Wk01LjYyNTIgNi4wMDAwMUM1LjYyNTIgNC42ODgzMyA2LjY4ODUzIDMuNjI1IDguMDAwMjEgMy42MjVDOS4zMTE4OSAzLjYyNSAxMC4zNzUyIDQuNjg4MzMgMTAuMzc1MiA2LjAwMDAxQzEwLjM3NTIgNy4zMTE2OSA5LjMxMTg5IDguMzc1MDEgOC4wMDAyMSA4LjM3NTAxQzYuNjg4NTMgOC4zNzUwMSA1LjYyNTIgNy4zMTE2OSA1LjYyNTIgNi4wMDAwMVoiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuODgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yLjM3NTQ1IDUuOTQ5NzFDMi4zNzU0NSAyLjg0MzI0IDQuODkzNzQgMC4zMjQ5NTEgOC4wMDAyIDAuMzI0OTUxQzExLjEwNjcgMC4zMjQ5NTEgMTMuNjI1IDIuODQzMjQgMTMuNjI1IDUuOTQ5NzFDMTMuNjI1IDcuNDIyNzIgMTMuMDU4NyA4Ljc2MzQ4IDEyLjEzMjEgOS43NjYyMkwxMy45Mzg2IDEyLjM0NjJDMTQuMjU1NCAxMi43OTg2IDE0LjE0NTQgMTMuNDIyMiAxMy42OTMgMTMuNzM4OUwxMS4xNTc1IDE1LjUxNDNDMTAuNzA1MSAxNS44MzExIDEwLjA4MTYgMTUuNzIxMiA5Ljc2NDc4IDE1LjI2ODhMOC4wMDAyIDEyLjc0ODdMNi4yMzU2MyAxNS4yNjg4QzUuOTE4ODUgMTUuNzIxMiA1LjI5NTMgMTUuODMxMSA0Ljg0MjkgMTUuNTE0M0wyLjMwNzM3IDEzLjczODlDMS44NTQ5NiAxMy40MjIyIDEuNzQ1MDIgMTIuNzk4NiAyLjA2MTc5IDEyLjM0NjJMMy44NjgzMyA5Ljc2NjIyQzIuOTQxNjcgOC43NjM0OCAyLjM3NTQ1IDcuNDIyNzIgMi4zNzU0NSA1Ljk0OTcxWk04LjAwMDIgMS4zMjQ5NUM1LjQ0NjAyIDEuMzI0OTUgMy4zNzU0NSAzLjM5NTUyIDMuMzc1NDUgNS45NDk3MUMzLjM3NTQ1IDguNTAzODkgNS40NDYwMiAxMC41NzQ1IDguMDAwMiAxMC41NzQ1QzEwLjU1NDQgMTAuNTc0NSAxMi42MjUgOC41MDM4OSAxMi42MjUgNS45NDk3MUMxMi42MjUgMy4zOTU1MiAxMC41NTQ0IDEuMzI0OTUgOC4wMDAyIDEuMzI0OTVaTTguMzg4MTIgMTEuNTYxM0M5LjUwOTAyIDExLjQ4NDkgMTAuNTM5OCAxMS4wODAyIDExLjM4NDkgMTAuNDQyNUwxMy4xMTk1IDEyLjkxOThMMTAuNTgzOSAxNC42OTUyTDguNDE2NDQgMTEuNTk5N0M4LjQwNzY2IDExLjU4NjUgOC4zOTgyMiAxMS41NzM3IDguMzg4MTIgMTEuNTYxM1pNNC42MTU1NCAxMC40NDI1QzUuNDYwNjUgMTEuMDgwMiA2LjQ5MTM5IDExLjQ4NDkgNy42MTIyOSAxMS41NjEzQzcuNjAyMTkgMTEuNTczNyA3LjU5Mjc0IDExLjU4NjUgNy41ODM5NyAxMS41OTk3TDUuNDE2NDcgMTQuNjk1MkwyLjg4MDk1IDEyLjkxOThMNC42MTU1NCAxMC40NDI1WiIgZmlsbD0iYmxhY2siIGZpbGwtb3BhY2l0eT0iMC44OCIvPgo8L3N2Zz4K';
+  invoiceCostSenderSigner.hidden = !(isCompletedTransportCost || isRejectedTransportCost);
+  invoiceStatusActions.hidden = !(isTransportCost || isReadyToSign || isSignatureError || isDraft);
+  invoicePrimaryAction.textContent = isSignatureError ? 'Подписать снова' : 'Подписать';
+  invoiceSecondaryAction.textContent = isReadyToSign || isDraft ? 'Отправить на подпись' : 'Отказать в подписи';
+  invoiceSecondaryAction.hidden = isSignatureError;
+  invoiceTertiaryAction.hidden = !(isReadyToSign || isDraft);
+  invoiceStatusInfo.hidden = !isSignatureError;
+  invoiceCostDetails.hidden = !(isTransportCost || isCompletedTransportCost || isRejectedTransportCost);
+  invoiceCurrentStatusText.textContent = isCompletedInvoice || isRejectedTransportCost
+    ? 'Перевозка завершена'
+    : isCarrierRejection
+    ? 'Перевозчик отказал в подписи. Документооборот завершен'
+    : isSignatureError
+    ? 'Подпись не прошла проверку'
+    : isReadyToSign || isDraft
+    ? 'Накладная готова к подписанию и отправке'
+    : isTransportCost
+    ? 'Перевозчик выставил титул стоимости'
+    : isInTransit
+      ? 'Машина в пути'
+      : isCarrierAtUnloading || isCarrierSignature
+        ? 'Ожидает подписи перевозчика'
+        : 'Ожидает подписи водителя';
+
+  const createdToggle = document.querySelector('#invoiceCreatedToggle');
+  createdToggle.setAttribute('aria-expanded', 'false');
+  createdToggle.querySelector('.invoice-timeline-chevron').classList.remove('expanded');
+  document.querySelector('#invoiceCreatedSignature').hidden = true;
+
+  receiptDetailView.hidden = true;
+  assignmentDetailView.hidden = true;
+  applicationDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = true;
+  document.querySelector('.workspace').hidden = true;
+  invoiceDetailView.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+invoiceDetailBack.addEventListener('click', () => {
+  invoiceDetailView.hidden = true;
+  document.querySelector('.page-header').hidden = false;
+  document.querySelector('.workspace').hidden = false;
+  if (lastOpenedInvoiceRow) lastOpenedInvoiceRow.focus();
+});
+
+document.querySelector('#invoiceLoadingToggle').addEventListener('click', (event) => {
+  const signatures = document.querySelector('#invoiceLoadingSignatures');
+  const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+  event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+  event.currentTarget.querySelector('.invoice-timeline-chevron').classList.toggle('expanded', !expanded);
+  signatures.hidden = expanded;
+});
+
+document.querySelector('#invoiceCreatedToggle').addEventListener('click', (event) => {
+  const signature = document.querySelector('#invoiceCreatedSignature');
+  const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+  event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+  event.currentTarget.querySelector('.invoice-timeline-chevron').classList.toggle('expanded', !expanded);
+  signature.hidden = expanded;
+});
+
+invoiceUnloadingToggle.addEventListener('click', (event) => {
+  if (invoiceUnloadingChevron.hidden) return;
+  const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+  event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+  invoiceUnloadingChevron.classList.toggle('expanded', !expanded);
+  invoiceUnloadingSignatures.hidden = expanded;
+});
+
+invoiceCostToggle.addEventListener('click', (event) => {
+  const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true';
+  event.currentTarget.setAttribute('aria-expanded', String(!expanded));
+  event.currentTarget.querySelector('.invoice-timeline-chevron').classList.toggle('expanded', !expanded);
+  invoiceCostSignatures.hidden = expanded;
+});
+
+function hasInvoiceDetailForRow(row) {
+  if (row.dataset.archiveSection === 'completed' && (row.dataset.status === 'delivery' || row.dataset.status === 'transport-cost')) return true;
+  if (row.dataset.archiveSection === 'rejected' && (row.dataset.status === 'carrier-rejection' || row.dataset.status === 'transport-cost')) return true;
+  if (row.closest('#draftRows') || row.dataset.status === 'draft') return true;
+  if (row.dataset.status === 'loading' || row.dataset.status === 'route') return true;
+  if (row.dataset.status === 'transport-cost') return Boolean(row.closest('#rows'));
+  if (row.dataset.status === 'signature') return Boolean(row.closest('#rows'));
+  if (row.dataset.status === 'error') return Boolean(row.closest('#rows'));
+  return row.dataset.status === 'unloading';
+}
+
+function canOpenDocumentRow(row) {
+  if (row.classList.contains('receipt-row') || row.classList.contains('assignment-row')) return true;
+  if (row.closest('#applicationRows, #counterpartyApplicationRows, #draftApplicationRows, #archiveApplicationRows')) return true;
+  return hasInvoiceDetailForRow(row);
+}
+
+function selectRandomUnreadDocuments(groupRows) {
+  const candidates = [...new Set(groupRows)].filter(canOpenDocumentRow);
+  const count = Math.min(candidates.length, candidates.length > 4 ? 2 : 1);
+  for (let index = candidates.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [candidates[index], candidates[randomIndex]] = [candidates[randomIndex], candidates[index]];
+  }
+  candidates.slice(0, count).forEach((row) => row.classList.add('unread-document'));
+}
+
+function initializeUnreadDocuments() {
+  [
+    '#rows > .table-row',
+    '#counterpartyRows > .table-row',
+    '#draftRows > .table-row',
+    '#applicationRows > .table-row',
+    '#counterpartyApplicationRows > .table-row',
+    '#draftApplicationRows > .table-row',
+    '#assignmentsView .assignment-row',
+    '#counterpartyAssignmentsView .assignment-row',
+    '#draftAssignmentsView .assignment-row',
+  ].forEach((selector) => selectRandomUnreadDocuments(document.querySelectorAll(selector)));
+
+  ['completed', 'rejected', 'trash', 'all'].forEach((section) => {
+    selectRandomUnreadDocuments(document.querySelectorAll(`#archiveRows > [data-archive-section="${section}"]`));
+    selectRandomUnreadDocuments(document.querySelectorAll(`#archiveApplicationRows > [data-archive-section="${section}"]`));
+    selectRandomUnreadDocuments(document.querySelectorAll(`#archiveAssignmentsView [data-archive-section="${section}"]`));
+  });
+
+  selectRandomUnreadDocuments(receiptRows);
+}
+
+initializeUnreadDocuments();
+
+document.querySelectorAll('.forwarding-order[href="#"]').forEach((link) => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
   });
 });
 
 rows.forEach((row) => row.addEventListener('click', (event) => {
   if (event.target.closest('.progress') || event.target.closest('.row-check') || event.target.closest('.row-actions')) return;
+  if (activeDocumentTab === 'assignments') return;
+  if (activeDocumentTab === 'applications' && (row.dataset.status === 'waiting' || row.dataset.status === 'error' || row.dataset.status === 'carrier-signature' || row.dataset.status === 'completed' || row.dataset.status === 'rejected' || row.dataset.status === 'draft' || row.classList.contains('draft-row'))) {
+    openApplicationDetail(row);
+    return;
+  }
+  if (activeDocumentTab === 'invoices' && hasInvoiceDetailForRow(row)) {
+    openInvoiceDetail(row);
+    return;
+  }
   showToast(activeDocumentTab === 'applications' ? 'Открытие заявки будет подключено в следующем шаге' : 'Открытие накладной будет подключено в следующем шаге');
+}));
+
+rows.forEach((row) => row.addEventListener('keydown', (event) => {
+  if (event.target !== row) return;
+  if (event.key === 'Enter' || event.key === ' ') {
+    if (activeDocumentTab === 'applications' && (row.dataset.status === 'waiting' || row.dataset.status === 'error' || row.dataset.status === 'carrier-signature' || row.dataset.status === 'completed' || row.dataset.status === 'rejected' || row.dataset.status === 'draft' || row.classList.contains('draft-row'))) {
+      event.preventDefault();
+      openApplicationDetail(row);
+      return;
+    }
+    if (activeDocumentTab !== 'invoices' || !hasInvoiceDetailForRow(row)) return;
+    event.preventDefault();
+    openInvoiceDetail(row);
+  }
 }));
 
 document.querySelectorAll('.row-actions').forEach((button) => {
@@ -953,7 +1665,7 @@ rows.forEach((row) => {
   });
 });
 
-['#selectAll', '#applicationSelectAll'].forEach((selector) => {
+['#selectAll', '#applicationSelectAll', '#assignmentSelectAll', '#counterpartyAssignmentSelectAll', '#draftAssignmentSelectAll', '#archiveAssignmentSelectAll'].forEach((selector) => {
   document.querySelector(selector).addEventListener('change', (event) => {
     getActiveRows().forEach((row) => {
       row.classList.toggle('selected-row', event.target.checked);
@@ -969,6 +1681,6 @@ helpButton.addEventListener('click', () => {
 });
 
 updateInvoiceStatusOptions();
-[senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter, applicationSupplyPointFilter, statusFilter].forEach(enhanceFilterSelect);
+[senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter, applicationSupplyPointFilter, statusFilter, assignmentForwarderFilter, assignmentShipperFilter, assignmentStatusFilter, assignmentTopStatusFilter].forEach(enhanceFilterSelect);
 updateFilterPanelFields();
 populateFilterOptions();
