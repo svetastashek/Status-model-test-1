@@ -773,7 +773,9 @@ function updateFilterPanelFields() {
   const organizationStatusParts = enhancedFilterSelects.get(statusFilter);
   if (organizationStatusParts) organizationStatusParts.wrapper.hidden = applicationsMode || assignmentsMode;
   const assignmentTopStatusParts = enhancedFilterSelects.get(assignmentTopStatusFilter);
-  if (assignmentTopStatusParts) assignmentTopStatusParts.wrapper.hidden = !(assignmentsMode && activeView === 'archive-all');
+  if (assignmentTopStatusParts) {
+    assignmentTopStatusParts.wrapper.hidden = !(assignmentsMode && (activeView === 'requires' || activeView === 'archive-all'));
+  }
 }
 
 function getSearchTextNodes(row) {
