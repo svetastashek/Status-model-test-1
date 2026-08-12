@@ -158,6 +158,64 @@ document.querySelectorAll('.progress [data-tooltip]').forEach((segment, index) =
   segment.append(tooltip);
 });
 
+const workingApplicationDetails = [
+  { carrierAddress: 'Россия, 163045, Архангельская область, Архангельск, Окружное шоссе, 11', supplyPoint: 'Россия, 396310, Воронежская область, Новоусманский район, Новая Усмань, Дорожная улица, 25', supplyDate: '12.08.2026 09:30', cargo: 'Промышленное оборудование', weight: '6 840 кг', units: '14 шт' },
+  { carrierAddress: 'Россия, 192241, Санкт-Петербург, Софийская улица, 60', supplyPoint: 'Россия, 188640, Ленинградская область, Всеволожск, Южное шоссе, 134', supplyDate: '12.08.2026 11:00', cargo: 'Холодильное оборудование', weight: '3 480 кг', units: '7 шт' },
+  { carrierAddress: 'Россия, 620000, Свердловская область, Екатеринбург, улица Шаумяна, 92', supplyPoint: 'Россия, 623700, Свердловская область, Берёзовский, Западная промзона, 3', supplyDate: '13.08.2026 08:45', cargo: 'Металлические конструкции', weight: '12 600 кг', units: '24 шт' },
+  { carrierAddress: 'Россия, 443022, Самарская область, Самара, Заводское шоссе, 17', supplyPoint: 'Россия, 443052, Самара, проспект Кирова, 10', supplyDate: '13.08.2026 14:20', cargo: 'Медицинское оборудование', weight: '1 920 кг', units: '36 шт' },
+  { carrierAddress: 'Россия, 397908, Воронежская область, Лиски, Индустриальная улица, 8', supplyPoint: 'Россия, 394033, Воронеж, Ленинский проспект, 172', supplyDate: '14.08.2026 10:15', cargo: 'Соки в упаковке', weight: '8 750 кг', units: '420 шт' },
+  { carrierAddress: 'Россия, 344065, Ростовская область, Ростов-на-Дону, Орская улица, 31', supplyPoint: 'Россия, 346720, Ростовская область, Аксай, Западная улица, 2', supplyDate: '14.08.2026 16:40', cargo: 'Строительные материалы', weight: '15 300 кг', units: '510 шт' },
+  { carrierAddress: 'Россия, 163002, Архангельск, Московский проспект, 25', supplyPoint: 'Россия, 164500, Архангельская область, Северодвинск, Железнодорожная улица, 54', supplyDate: '15.08.2026 09:00', cargo: 'Пиломатериалы', weight: '18 400 кг', units: '96 шт' },
+  { carrierAddress: 'Россия, 690001, Приморский край, Владивосток, Светланская улица, 167', supplyPoint: 'Россия, 692756, Приморский край, Артём, Каширская улица, 21', supplyDate: '15.08.2026 12:30', cargo: 'Бытовая техника', weight: '4 260 кг', units: '68 шт' },
+  { carrierAddress: 'Россия, 300036, Тульская область, Тула, Одоевское шоссе, 63', supplyPoint: 'Россия, 301650, Тульская область, Новомосковск, Узловское шоссе, 4', supplyDate: '16.08.2026 08:00', cargo: 'Комплектующие для производства', weight: '9 100 кг', units: '180 шт' },
+  { carrierAddress: 'Россия, 443080, Самара, Революционная улица, 70', supplyPoint: 'Россия, 445043, Самарская область, Тольятти, Транспортная улица, 17', supplyDate: '16.08.2026 13:10', cargo: 'Офисная мебель', weight: '2 160 кг', units: '32 шт' },
+  { carrierAddress: 'Россия, 420087, Республика Татарстан, Казань, улица Родины, 7', supplyPoint: 'Россия, 420051, Казань, Северо-Западная улица, 14', supplyDate: '17.08.2026 09:20', cargo: 'Фармацевтическая продукция', weight: '980 кг', units: '125 шт' },
+  { carrierAddress: 'Россия, 630088, Новосибирск, Петухова улица, 35', supplyPoint: 'Россия, 633100, Новосибирская область, Обь, Омский тракт, 4', supplyDate: '17.08.2026 15:00', cargo: 'Запасные части', weight: '5 720 кг', units: '210 шт' },
+  { carrierAddress: 'Россия, 350059, Краснодар, Уральская улица, 126', supplyPoint: 'Россия, 353217, Краснодарский край, Динская, Крайняя улица, 3', supplyDate: '18.08.2026 07:40', cargo: 'Продукты питания', weight: '11 850 кг', units: '640 шт' },
+  { carrierAddress: 'Россия, 300012, Тула, Рязанская улица, 38', supplyPoint: 'Россия, 301602, Тульская область, Узловая, Заводская улица, 9', supplyDate: '18.08.2026 11:50', cargo: 'Электроинструменты', weight: '3 040 кг', units: '84 шт' },
+  { carrierAddress: 'Россия, 443090, Самара, Советской Армии улица, 180', supplyPoint: 'Россия, 446200, Самарская область, Новокуйбышевск, Промышленная улица, 1', supplyDate: '19.08.2026 10:30', cargo: 'Бумажная продукция', weight: '7 360 кг', units: '275 шт' },
+];
+
+document.querySelectorAll('#applicationRows > .table-row, #counterpartyApplicationRows > .table-row, #archiveApplicationRows > .table-row').forEach((row, index) => {
+  const cells = [...row.children];
+  const invoiceCell = cells[0];
+  const carrierName = cells[1]?.querySelector('strong')?.textContent.trim() || 'Перевозчик';
+  const detail = workingApplicationDetails[index % workingApplicationDetails.length];
+
+  cells[1].className = 'application-party-cell';
+  cells[1].replaceChildren();
+  const carrierTitle = document.createElement('strong');
+  carrierTitle.textContent = carrierName;
+  const carrierAddress = document.createElement('span');
+  carrierAddress.className = 'muted address';
+  carrierAddress.textContent = detail.carrierAddress;
+  cells[1].append(carrierTitle, carrierAddress);
+
+  cells[2].className = 'application-point-cell';
+  cells[2].replaceChildren();
+  const supplyPoint = document.createElement('strong');
+  supplyPoint.textContent = detail.supplyPoint;
+  const supplyDate = document.createElement('span');
+  supplyDate.className = 'muted';
+  supplyDate.textContent = detail.supplyDate;
+  cells[2].append(supplyPoint, supplyDate);
+
+  cells[3].className = 'cargo application-cargo-cell';
+  cells[3].replaceChildren();
+  const cargoTitle = document.createElement('strong');
+  cargoTitle.textContent = detail.cargo;
+  const cargoWeight = document.createElement('span');
+  cargoWeight.textContent = detail.weight;
+  const cargoUnits = document.createElement('span');
+  cargoUnits.className = 'muted';
+  cargoUnits.textContent = detail.units;
+  cells[3].append(cargoTitle, cargoWeight, cargoUnits);
+
+  row.dataset.carrier = carrierName;
+  row.dataset.supplyPoint = detail.supplyPoint;
+  row.dataset.search = `${invoiceCell.textContent} ${carrierName} ${detail.carrierAddress} ${detail.supplyPoint} ${detail.supplyDate} ${detail.cargo} ${detail.weight} ${detail.units}`.toLowerCase();
+});
+
 const rows = [...document.querySelectorAll('.table-row')];
 const assignmentRows = [...document.querySelectorAll('.assignment-row')];
 const counterpartyAssignmentRows = [...document.querySelectorAll('.counterparty-assignment-row')];
@@ -193,8 +251,8 @@ assignmentRows.forEach((row, index) => {
 rows.forEach((row, index) => {
   row.dataset.orgStatus = organizationStatuses[index % organizationStatuses.length];
   if (row.closest('#applicationRows, #counterpartyApplicationRows, #draftApplicationRows, #archiveApplicationRows')) {
-    row.dataset.carrier = row.querySelector('.invoice-cell').nextElementSibling.querySelector('strong')?.textContent.trim() || '';
-    row.dataset.supplyPoint = applicationSupplyPoints[index % applicationSupplyPoints.length];
+    row.dataset.carrier ||= row.querySelector('.invoice-cell').nextElementSibling.querySelector('strong')?.textContent.trim() || '';
+    row.dataset.supplyPoint ||= applicationSupplyPoints[index % applicationSupplyPoints.length];
   }
   const invoiceName = row.querySelector('.invoice-cell strong').textContent;
   const documentName = row.classList.contains('assignment-row')
