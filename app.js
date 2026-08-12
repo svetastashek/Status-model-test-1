@@ -16,6 +16,24 @@ document.querySelectorAll('#counterpartyApplicationRows .table-row').forEach((ro
   if (row.dataset.status === 'carrier-error' || row.querySelector('.striped')) row.remove();
 });
 
+const activeAssignmentsTable = document.querySelector('#assignmentsView .assignment-table');
+const activeAssignmentRowsByStatus = ['assignment-signature', 'assignment-carrier', 'assignment-error']
+  .map((status) => ({
+    status,
+    rows: [...document.querySelectorAll(`#assignmentsView .assignment-row[data-status="${status}"], #counterpartyAssignmentsView .assignment-row[data-status="${status}"]`)],
+  }));
+const mixedActiveAssignmentRows = [];
+let previousActiveAssignmentStatus = '';
+while (activeAssignmentRowsByStatus.some((group) => group.rows.length)) {
+  const availableGroups = activeAssignmentRowsByStatus
+    .filter((group) => group.rows.length)
+    .sort((first, second) => second.rows.length - first.rows.length);
+  const nextGroup = availableGroups.find((group) => group.status !== previousActiveAssignmentStatus) || availableGroups[0];
+  mixedActiveAssignmentRows.push(nextGroup.rows.shift());
+  previousActiveAssignmentStatus = nextGroup.status;
+}
+mixedActiveAssignmentRows.forEach((row) => activeAssignmentsTable.append(row));
+
 const archiveRowsContainer = document.querySelector('#archiveRows');
 const trashRowSources = [
   document.querySelector('#draftRows .table-row:nth-child(2)'),
@@ -87,6 +105,16 @@ while (rejectedByCarrier.length || rejectedByCost.length) {
 }
 mixedRejectedRows.forEach((row) => archiveRowsContainer.append(row));
 
+const finalArchiveRowsByStatus = ['delivery', 'carrier-rejection', 'transport-cost']
+  .map((status) => [...archiveRowsContainer.querySelectorAll(`[data-archive-section="completed"][data-status="${status}"], [data-archive-section="rejected"][data-status="${status}"]`)]);
+const mixedFinalArchiveRows = [];
+while (finalArchiveRowsByStatus.some((statusRows) => statusRows.length)) {
+  finalArchiveRowsByStatus.forEach((statusRows) => {
+    if (statusRows.length) mixedFinalArchiveRows.push(statusRows.shift());
+  });
+}
+mixedFinalArchiveRows.forEach((row) => archiveRowsContainer.append(row));
+
 document.querySelectorAll('#archiveRows .progress').forEach((progress) => {
   const row = progress.closest('.table-row');
   const previousStageTooltips = archiveSegmentTooltips[row.dataset.status] || [];
@@ -133,7 +161,7 @@ document.querySelectorAll('.progress [data-tooltip]').forEach((segment, index) =
 const rows = [...document.querySelectorAll('.table-row')];
 const assignmentRows = [...document.querySelectorAll('.assignment-row')];
 const counterpartyAssignmentRows = [...document.querySelectorAll('.counterparty-assignment-row')];
-const requiresAssignmentRows = [...document.querySelectorAll('#assignmentsView .assignment-row')];
+const requiresAssignmentRows = [...document.querySelectorAll('#assignmentsView .assignment-row:not(.counterparty-assignment-row)')];
 const archiveAssignmentRows = [...document.querySelectorAll('.archive-assignment-row')];
 const draftAssignmentRows = [...document.querySelectorAll('.draft-assignment-row')];
 const organizationStatuses = ['observer-signer', 'observer', 'signer'];
@@ -258,13 +286,12 @@ const emptyState = document.querySelector('#emptyState');
 const pageTitle = document.querySelector('#pageTitle');
 const sectionButtons = [...document.querySelectorAll('[data-view]')];
 const documentsInProgressNav = document.querySelector('#documentsInProgressNav');
-const documentSubnavButtons = [document.querySelector('#requiresActionsNav'), document.querySelector('#counterpartyNav')];
+const documentSubnavButtons = [document.querySelector('#workingAllNav'), document.querySelector('#requiresActionsNav'), document.querySelector('#counterpartyNav')];
 const archiveNav = document.querySelector('#archiveNav');
 const archiveSubnavButtons = [
   document.querySelector('#archiveAllNav'),
   document.querySelector('#archiveCompletedNav'),
   document.querySelector('#archiveRejectedNav'),
-  document.querySelector('#archiveTrashNav'),
 ];
 const applicationTab = document.querySelector('.tabs [data-tab="Заявки"]');
 const assignmentsTab = document.querySelector('.tabs [data-tab="Поручения"]');
@@ -338,7 +365,7 @@ const invoiceCompleteStep = document.querySelector('#invoiceCompleteStep');
 const helpButton = document.querySelector('#helpButton');
 const helpPopover = document.querySelector('#helpPopover');
 const toast = document.querySelector('#toast');
-let activeView = 'requires';
+let activeView = 'working-all';
 let activeDocumentTab = 'applications';
 let appliedFilters = {};
 
@@ -360,27 +387,46 @@ function getActiveRows() {
   const groupKey = getViewGroupKey();
   if (activeDocumentTab === 'receipts') return [];
   if (activeDocumentTab === 'applications') {
+    if (activeView === 'working-all') {
+      return [
+        ...applicationRowGroups.requires.querySelectorAll('.table-row'),
+        ...applicationRowGroups.counterparty.querySelectorAll('.table-row'),
+      ];
+    }
     const group = applicationRowGroups[groupKey];
     if (!group) return [];
     const groupRows = [...group.querySelectorAll('.table-row')];
     if (!activeView.startsWith('archive-')) return groupRows;
-    if (activeView === 'archive-all') return getUniqueDocumentRows(groupRows);
+    if (activeView === 'archive-all') {
+      return getUniqueDocumentRows(groupRows.filter((row) => row.dataset.archiveSection === 'completed' || row.dataset.archiveSection === 'rejected'));
+    }
     return groupRows.filter((row) => `archive-${row.dataset.archiveSection}` === activeView);
   }
   if (activeDocumentTab === 'assignments') {
+    if (activeView === 'working-all') return [...requiresAssignmentRows, ...counterpartyAssignmentRows];
     if (activeView === 'requires') return requiresAssignmentRows;
     if (activeView === 'counterparty') return counterpartyAssignmentRows;
     if (activeView === 'drafts') return draftAssignmentRows;
-    if (activeView === 'archive-all') return archiveAssignmentRows;
+    if (activeView === 'archive-all') {
+      return archiveAssignmentRows.filter((row) => row.dataset.archiveSection === 'completed' || row.dataset.archiveSection === 'rejected');
+    }
     if (activeView === 'archive-completed') return archiveAssignmentRows.filter((row) => row.dataset.archiveSection === 'completed');
     if (activeView === 'archive-trash') return archiveAssignmentRows.filter((row) => row.dataset.archiveSection === 'trash');
     return [];
+  }
+  if (activeView === 'working-all') {
+    return [
+      ...rowGroups.requires.querySelectorAll('.table-row'),
+      ...rowGroups.counterparty.querySelectorAll('.table-row'),
+    ];
   }
   const group = rowGroups[groupKey];
   if (!group) return [];
   const groupRows = [...group.querySelectorAll('.table-row')];
   if (!activeView.startsWith('archive-')) return groupRows;
-  if (activeView === 'archive-all') return getUniqueDocumentRows(groupRows);
+  if (activeView === 'archive-all') {
+    return getUniqueDocumentRows(groupRows.filter((row) => row.dataset.archiveSection === 'completed' || row.dataset.archiveSection === 'rejected'));
+  }
   return groupRows.filter((row) => `archive-${row.dataset.archiveSection}` === activeView);
 }
 
@@ -389,7 +435,7 @@ function getActiveSelectAll() {
   if (activeDocumentTab === 'assignments') {
     if (activeView === 'drafts') return document.querySelector('#draftAssignmentSelectAll');
     if (activeView.startsWith('archive-')) return document.querySelector('#archiveAssignmentSelectAll');
-    return document.querySelector(activeView === 'counterparty' ? '#counterpartyAssignmentSelectAll' : '#assignmentSelectAll');
+    return document.querySelector('#assignmentSelectAll');
   }
   return document.querySelector('#selectAll');
 }
@@ -645,6 +691,12 @@ function populateFilterOptions() {
       ? archiveAssignmentStatuses.filter(([value]) => activeRows.some((row) => row.dataset.status === value))
       : activeView === 'counterparty'
         ? [['assignment-carrier', 'Ожидает подпись экспедитора']]
+        : activeView === 'working-all'
+          ? [
+            ['assignment-signature', 'Ожидает подписи отправителя'],
+            ['assignment-error', 'Ошибка подписи'],
+            ['assignment-carrier', 'Ожидает подпись экспедитора'],
+          ]
         : [
         ['assignment-signature', 'Ожидает подписи отправителя'],
         ['assignment-error', 'Ошибка подписи'],
@@ -774,7 +826,7 @@ function updateFilterPanelFields() {
   if (organizationStatusParts) organizationStatusParts.wrapper.hidden = applicationsMode || assignmentsMode;
   const assignmentTopStatusParts = enhancedFilterSelects.get(assignmentTopStatusFilter);
   if (assignmentTopStatusParts) {
-    assignmentTopStatusParts.wrapper.hidden = !(assignmentsMode && (activeView === 'requires' || activeView === 'archive-all'));
+    assignmentTopStatusParts.wrapper.hidden = !(assignmentsMode && (activeView === 'requires' || activeView === 'working-all' || activeView === 'archive-all'));
   }
 }
 
@@ -840,6 +892,11 @@ function updateRows() {
   searchClear.hidden = search.value.length === 0;
   const terms = search.value.trim().toLocaleLowerCase('ru').split(/\s+/).filter(Boolean);
   const activeRows = getActiveRows();
+  if (activeDocumentTab === 'assignments' && !activeView.startsWith('archive-') && activeView !== 'drafts') {
+    [...requiresAssignmentRows, ...counterpartyAssignmentRows].forEach((row) => {
+      row.hidden = !activeRows.includes(row);
+    });
+  }
   if (getViewGroupKey() === 'archive') {
     const archiveGroup = activeDocumentTab === 'applications' ? applicationRowGroups.archive : rowGroups.archive;
     if (activeDocumentTab === 'assignments') {
@@ -866,8 +923,10 @@ function updateRows() {
     }
   });
   if (activeDocumentTab === 'assignments') {
-    assignmentsNoResults.hidden = activeView !== 'requires' || visible !== 0;
-    counterpartyAssignmentsNoResults.hidden = activeView !== 'counterparty' || visible !== 0;
+    const usesActiveAssignmentsTable = activeView === 'requires' || activeView === 'counterparty' || activeView === 'working-all';
+    assignmentsNoResults.querySelector('strong').textContent = activeView === 'counterparty' ? 'Поручения не найдены' : 'Поручения не найдены';
+    assignmentsNoResults.hidden = !usesActiveAssignmentsTable || visible !== 0;
+    counterpartyAssignmentsNoResults.hidden = true;
     draftAssignmentsNoResults.hidden = activeView !== 'drafts' || visible !== 0;
     archiveAssignmentsNoResults.hidden = !activeView.startsWith('archive-') || visible !== 0;
     emptyState.hidden = true;
@@ -947,11 +1006,14 @@ function updateInvoiceStatusOptions() {
   const activeStatusView = getViewGroupKey();
   invoiceStatusOptions.forEach((option) => {
     const optionStatusView = option.dataset.statusView || '';
+    const matchesStatusView = !optionStatusView || (activeView === 'working-all'
+      ? optionStatusView === 'requires' || optionStatusView === 'counterparty'
+      : optionStatusView === activeStatusView);
     const allowedArchiveViews = option.dataset.archiveViews?.split(',') || [];
     const isAllowedArchiveView = !allowedArchiveViews.length || allowedArchiveViews.includes(activeView);
     option.hidden = activeDocumentTab === 'applications'
-      ? (option.dataset.documentTab !== 'applications' || (Boolean(optionStatusView) && optionStatusView !== activeStatusView) || !isAllowedArchiveView) && Boolean(option.dataset.value)
-      : option.dataset.documentTab === 'applications' || (Boolean(optionStatusView) && optionStatusView !== activeStatusView) || !isAllowedArchiveView;
+      ? (option.dataset.documentTab !== 'applications' || !matchesStatusView || !isAllowedArchiveView) && Boolean(option.dataset.value)
+      : option.dataset.documentTab === 'applications' || !matchesStatusView || !isAllowedArchiveView;
   });
 }
 
@@ -1031,15 +1093,16 @@ sectionButtons.forEach((button) => {
     document.querySelector('.workspace').hidden = false;
     activeView = button.dataset.view;
     const activeGroupKey = getViewGroupKey();
-    const documentsSectionExpanded = activeView === 'requires' || activeView === 'counterparty';
-    const archiveSectionExpanded = activeView.startsWith('archive-');
+    const documentsSectionExpanded = activeView === 'working-all' || activeView === 'requires' || activeView === 'counterparty';
+    const isArchiveView = activeView.startsWith('archive-');
+    const archiveSectionExpanded = activeView === 'archive-all' || activeView === 'archive-completed' || activeView === 'archive-rejected';
     documentsInProgressNav.setAttribute('aria-expanded', String(documentsSectionExpanded));
     documentSubnavButtons.forEach((item) => { item.hidden = !documentsSectionExpanded; });
     archiveNav.setAttribute('aria-expanded', String(archiveSectionExpanded));
     archiveSubnavButtons.forEach((item) => { item.hidden = !archiveSectionExpanded; });
     applicationTab.textContent = 'Заказы-заявки';
     const archiveHasAssignments = activeView === 'archive-all' || activeView === 'archive-completed' || activeView === 'archive-trash';
-    assignmentsTab.hidden = archiveSectionExpanded && !archiveHasAssignments;
+    assignmentsTab.hidden = isArchiveView && !archiveHasAssignments;
     const archiveHasReceipts = activeView === 'archive-all' || activeView === 'archive-completed';
     receiptsTab.hidden = !archiveHasReceipts;
     if (activeDocumentTab === 'receipts' && !archiveHasReceipts) {
@@ -1050,7 +1113,7 @@ sectionButtons.forEach((button) => {
         tab.setAttribute('aria-selected', String(isApplicationsTab));
       });
     }
-    if (activeDocumentTab === 'assignments' && archiveSectionExpanded && !archiveHasAssignments) {
+    if (activeDocumentTab === 'assignments' && isArchiveView && !archiveHasAssignments) {
       activeDocumentTab = 'applications';
       document.querySelectorAll('.tabs button').forEach((tab) => {
         const isApplicationsTab = tab === applicationTab;
@@ -1069,19 +1132,21 @@ sectionButtons.forEach((button) => {
     invoiceTableHead.hidden = activeDocumentTab !== 'invoices';
     applicationTableHead.hidden = activeDocumentTab !== 'applications';
     tableWrap.hidden = activeDocumentTab === 'assignments' || activeDocumentTab === 'receipts';
-    assignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'requires';
-    counterpartyAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'counterparty';
+    assignmentsView.hidden = activeDocumentTab !== 'assignments' || (activeView !== 'requires' && activeView !== 'counterparty' && activeView !== 'working-all');
+    counterpartyAssignmentsView.hidden = true;
     draftAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'drafts';
     archiveAssignmentsView.hidden = activeDocumentTab !== 'assignments' || !archiveHasAssignments;
-    const activeViewHasAssignments = activeView === 'requires' || activeView === 'counterparty' || activeView === 'drafts' || archiveHasAssignments;
+    const activeViewHasAssignments = activeView === 'working-all' || activeView === 'requires' || activeView === 'counterparty' || activeView === 'drafts' || archiveHasAssignments;
     assignmentsEmpty.hidden = activeDocumentTab !== 'assignments' || activeViewHasAssignments;
     receiptsView.hidden = activeDocumentTab !== 'receipts' || !archiveHasReceipts;
     toolbar.hidden = activeDocumentTab === 'receipts' || (activeDocumentTab === 'assignments' && !activeViewHasAssignments);
     Object.entries(rowGroups).forEach(([view, group]) => {
-      group.hidden = activeDocumentTab !== 'invoices' || view !== activeGroupKey;
+      const belongsToWorkingAll = activeView === 'working-all' && (view === 'requires' || view === 'counterparty');
+      group.hidden = activeDocumentTab !== 'invoices' || (!belongsToWorkingAll && view !== activeGroupKey);
     });
     Object.entries(applicationRowGroups).forEach(([view, group]) => {
-      group.hidden = activeDocumentTab !== 'applications' || view !== activeGroupKey;
+      const belongsToWorkingAll = activeView === 'working-all' && (view === 'requires' || view === 'counterparty');
+      group.hidden = activeDocumentTab !== 'applications' || (!belongsToWorkingAll && view !== activeGroupKey);
     });
     sectionButtons.forEach((item) => {
       const isActive = item === button;
@@ -1093,12 +1158,14 @@ sectionButtons.forEach((button) => {
       }
     });
     const archiveTitles = {
-      'archive-all': 'Все документы архива',
-      'archive-completed': 'Завершенные',
+      'archive-all': 'Все завершенные документы',
+      'archive-completed': 'Согласованные',
       'archive-rejected': 'Отказанные',
-      'archive-trash': 'Корзина',
+      'archive-trash': 'Архив',
     };
-    pageTitle.textContent = activeView === 'counterparty'
+    pageTitle.textContent = activeView === 'working-all'
+      ? 'Все документы в работе'
+      : activeView === 'counterparty'
       ? 'У контрагента'
       : activeView === 'drafts'
         ? 'Черновики'
@@ -1136,7 +1203,7 @@ sectionButtons.forEach((button) => {
 });
 
 documentsInProgressNav.addEventListener('click', () => {
-  document.querySelector('#requiresActionsNav').click();
+  document.querySelector('#workingAllNav').click();
 });
 
 archiveNav.addEventListener('click', () => {
@@ -1163,22 +1230,24 @@ document.querySelectorAll('.tabs button').forEach((tab) => {
     invoiceTableHead.hidden = activeDocumentTab !== 'invoices';
     applicationTableHead.hidden = activeDocumentTab !== 'applications';
     tableWrap.hidden = activeDocumentTab === 'assignments' || activeDocumentTab === 'receipts';
-    assignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'requires';
-    counterpartyAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'counterparty';
+    assignmentsView.hidden = activeDocumentTab !== 'assignments' || (activeView !== 'requires' && activeView !== 'counterparty' && activeView !== 'working-all');
+    counterpartyAssignmentsView.hidden = true;
     draftAssignmentsView.hidden = activeDocumentTab !== 'assignments' || activeView !== 'drafts';
     const archiveHasAssignments = activeView === 'archive-all' || activeView === 'archive-completed' || activeView === 'archive-trash';
     archiveAssignmentsView.hidden = activeDocumentTab !== 'assignments' || !archiveHasAssignments;
-    const activeViewHasAssignments = activeView === 'requires' || activeView === 'counterparty' || activeView === 'drafts' || archiveHasAssignments;
+    const activeViewHasAssignments = activeView === 'working-all' || activeView === 'requires' || activeView === 'counterparty' || activeView === 'drafts' || archiveHasAssignments;
     assignmentsEmpty.hidden = activeDocumentTab !== 'assignments' || activeViewHasAssignments;
     const archiveHasReceipts = activeView === 'archive-all' || activeView === 'archive-completed';
     receiptsView.hidden = activeDocumentTab !== 'receipts' || !archiveHasReceipts;
     toolbar.hidden = activeDocumentTab === 'receipts' || (activeDocumentTab === 'assignments' && !activeViewHasAssignments);
     const activeGroupKey = getViewGroupKey();
     Object.entries(applicationRowGroups).forEach(([view, group]) => {
-      group.hidden = activeDocumentTab !== 'applications' || view !== activeGroupKey;
+      const belongsToWorkingAll = activeView === 'working-all' && (view === 'requires' || view === 'counterparty');
+      group.hidden = activeDocumentTab !== 'applications' || (!belongsToWorkingAll && view !== activeGroupKey);
     });
     Object.entries(rowGroups).forEach(([view, group]) => {
-      group.hidden = activeDocumentTab !== 'invoices' || view !== activeGroupKey;
+      const belongsToWorkingAll = activeView === 'working-all' && (view === 'requires' || view === 'counterparty');
+      group.hidden = activeDocumentTab !== 'invoices' || (!belongsToWorkingAll && view !== activeGroupKey);
     });
     toolbar.classList.toggle('applications-mode', activeDocumentTab === 'applications');
     toolbar.classList.toggle('assignments-mode', activeDocumentTab === 'assignments');
@@ -1333,7 +1402,20 @@ function openAssignmentDetail(row) {
   row.classList.remove('unread-document');
   lastOpenedAssignmentRow = row;
   assignmentDetailNumber.textContent = row.querySelector('.invoice-cell strong').textContent.trim();
-  assignmentDetailStatus.hidden = row.dataset.status !== 'assignment-draft';
+  const isDraftAssignment = row.dataset.status === 'assignment-draft';
+  const isWaitingForSender = row.dataset.status === 'assignment-signature';
+  const isWaitingForForwarder = row.dataset.status === 'assignment-carrier';
+  const isSignatureError = row.dataset.status === 'assignment-error';
+  assignmentDetailStatus.textContent = isDraftAssignment
+    ? 'Черновик'
+    : isSignatureError
+      ? 'Ошибка подписи'
+    : isWaitingForForwarder
+      ? 'Ожидает подпись экспедитора'
+      : 'Ожидает подписи отправителя';
+  assignmentDetailStatus.classList.toggle('application-status-waiting', isWaitingForSender || isWaitingForForwarder);
+  assignmentDetailStatus.classList.toggle('application-status-error', isSignatureError);
+  assignmentDetailStatus.hidden = !(isDraftAssignment || isSignatureError || isWaitingForSender || isWaitingForForwarder);
   receiptDetailView.hidden = true;
   applicationDetailView.hidden = true;
   invoiceDetailView.hidden = true;
@@ -1380,6 +1462,7 @@ function openApplicationDetail(row) {
   applicationInfoDate.textContent = normalizeDetailDate(invoiceCell.querySelector('.muted')?.textContent || '05.08');
   applicationCarrierName.textContent = customer;
   const isSignatureError = row.dataset.status === 'error';
+  const isWaitingForSender = row.dataset.status === 'waiting' && Boolean(row.closest('#applicationRows'));
   const isCounterpartyApplication = row.dataset.status === 'carrier-signature';
   const isCompletedApplication = row.dataset.status === 'completed';
   const isRejectedApplication = row.dataset.status === 'rejected';
@@ -1389,7 +1472,20 @@ function openApplicationDetail(row) {
   applicationPrimaryAction.textContent = isSignatureError ? 'Подписать снова' : 'Подписать';
   applicationPrimaryAction.hidden = isReadOnlyApplication;
   applicationEditAction.hidden = isSignatureError || isReadOnlyApplication;
-  applicationDetailStatus.hidden = !isDraftApplication;
+  applicationDetailStatus.textContent = isDraftApplication
+    ? 'Черновик'
+    : isSignatureError
+      ? 'Ошибка подписи'
+    : isCompletedApplication
+      ? 'Согласовано перевозчиком'
+    : isRejectedApplication
+      ? 'Отказ перевозчика'
+    : isCounterpartyApplication
+      ? 'Ожидает подписи перевозчика'
+      : 'Ожидает подписи отправителя';
+  applicationDetailStatus.classList.toggle('application-status-waiting', isWaitingForSender || isCounterpartyApplication || isCompletedApplication);
+  applicationDetailStatus.classList.toggle('application-status-error', isSignatureError || isRejectedApplication);
+  applicationDetailStatus.hidden = !(isDraftApplication || isSignatureError || isCompletedApplication || isRejectedApplication || isWaitingForSender || isCounterpartyApplication);
   applicationCompletedTabs.forEach((tab) => { tab.hidden = !isArchiveFinalApplication; });
   receiptDetailView.hidden = true;
   assignmentDetailView.hidden = true;
@@ -1682,7 +1778,12 @@ helpButton.addEventListener('click', () => {
   helpPopover.hidden = !helpPopover.hidden;
 });
 
+document.querySelector('#brandLogo').addEventListener('click', () => {
+  window.location.reload();
+});
+
 updateInvoiceStatusOptions();
 [senderFilter, recipientFilter, customerFilter, carrierFilter, applicationCarrierFilter, applicationSupplyPointFilter, statusFilter, assignmentForwarderFilter, assignmentShipperFilter, assignmentStatusFilter, assignmentTopStatusFilter].forEach(enhanceFilterSelect);
 updateFilterPanelFields();
 populateFilterOptions();
+document.querySelector('#workingAllNav').click();
