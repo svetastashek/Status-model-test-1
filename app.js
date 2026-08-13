@@ -1219,7 +1219,7 @@ sectionButtons.forEach((button) => {
       'archive-all': 'Все завершенные документы',
       'archive-completed': 'Согласованные',
       'archive-rejected': 'Отказанные',
-      'archive-trash': 'Архив',
+      'archive-trash': 'Корзина',
     };
     pageTitle.textContent = activeView === 'working-all'
       ? 'Все документы в работе'
